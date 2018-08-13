@@ -1,0 +1,40 @@
+name:                reflex-dom-validation
+version:             0.1.0.0
+-- synopsis:            
+-- description:         
+license:             BSD3
+license-file:        LICENSE
+author:              Dave Laing
+maintainer:          dave.laing.80@gmail.com
+-- copyright:           
+-- category:            
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Reflex.Dom.Validation
+                     , Reflex.Dom.Validation.Storage
+                     , Reflex.Dom.Validation.Workflow
+                     , Reflex.Dom.Validation.Widget
+                     , Bootstrap
+                     , Bootstrap.Form
+                     , Demo
+  build-depends:       base >=4.9 && <4.11
+                     , mtl
+                     , validation
+                     , text
+                     , containers
+                     , dependent-sum
+                     , dependent-map
+                     , lens
+                     , reflex
+                     , reflex-dom
+                     , ghcjs-dom
+                     , jsaddle-warp
+                     , wai-app-static
+                     , aeson
+                     , reflex-dom-storage
+  ghc-options:         -Wall
+  hs-source-dirs:      src
+  default-language:    Haskell2010
