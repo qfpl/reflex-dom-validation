@@ -276,6 +276,13 @@ emailW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
        => FieldWidget t m r e Email
 emailW = nest $ \child -> child $ Field const id _Wrapped $
   requiredText "Email"
+  -- let
+  --   validate r i mt =
+  --     _
+  --   render dr i = wrapBootstrapFormInput "Email" i $ \dAttr mb emb ->
+  --     _
+  -- in
+  --   mkFieldWidget $ FieldWidgetConfig validate render
 
 newtype Password f =
   Password {
@@ -315,8 +322,9 @@ instance NFunctor Address where
 
 makeLenses ''Address
 
+-- TODO the Bool context should be used to make text fields writeable / read-only
 addressW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-         => FieldWidget t m r e Address
+         => FieldWidget t m Bool e Address
 addressW = nest $ \child ->
   traverse_ (toFormRow . child)
     [ Field const (<> "-street") aStreet $
@@ -329,10 +337,27 @@ addressW = nest $ \child ->
       requiredText "Postcode"
     ]
 
-billingW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
+billingW :: forall t m e. (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
          => FieldWidget t m (Address Maybe, Wrap Bool Maybe) e Address
-billingW =
-  addressW
+billingW = FieldWidget' $ \dr i a ea ev -> do
+  -- ir <- sample . current $ dr
+  -- let
+  --   er = updated dr
+  --   f (a', Wrap (Just True)) =
+  --     runFieldWidget (addressW :: FieldWidget t m Bool e Address) (pure False) i a' ea ev
+  --   f (_, _) =
+  --     runFieldWidget (addressW :: FieldWidget t m Bool e Address) (pure True) i a ea ev
+  -- d <- widgetHold (f ir) $ f <$> er
+  -- pure (join (fst <$> d), switchDyn (snd <$> d))
+
+  -- if the second set to true:
+  -- - is valid
+  -- - values are copied across
+  -- - everything is read only
+  -- otherwise:
+  -- - is just addressW with editable fields
+
+  runFieldWidget (addressW :: FieldWidget t m Bool e Address) (pure True) i a ea ev
 
 data Page1 f =
   Page1 {
@@ -402,7 +427,7 @@ page2W :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
 page2W = nest $ \child -> do
   el "h3" $ text "Page 2"
   traverse_ (toFormRow . child)
-    [ Field const (<> "-shipping") p2Shipping
+    [ Field (\_ _ -> True) (<> "-shipping") p2Shipping
         addressW
     , Field const (<> "-same") p2BillingSameAsShipping
         boolW
