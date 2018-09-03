@@ -35,32 +35,34 @@ import Bootstrap
 
 requiredText :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
              => Text
-             -> FieldWidget t m r e (Wrap Text)
-requiredText =
-  mkFieldWidget .
-  FieldWidgetConfig required .
-  const .
-  formText
+             -> FieldWidgetConfig t m r e (Wrap Text)
+requiredText l =
+  wrapFieldWidgetConfig .
+  FieldWidgetConfig' required $ \i dr da de ev ->
+    formText l i da de ev
 
 formText :: (MonadWidget t m, HasErrorMessage e)
          => Text
          -> Id
-         -> Maybe Text
-         -> Event t (Maybe Text)
+         -> Dynamic t (Maybe Text)
          -> Dynamic t [e]
+         -> Event t ()
          -> m (Event t (Maybe Text))
-formText l i = wrapBootstrapFormInput l i $ \da ib eb -> do
+formText l i = wrapBootstrapFormInput l i $ \da db ev -> do
   let
     mt = fromMaybe ""
     tm t = if Text.null t then Nothing else Just t
 
+  ib <- sample . current $ db
+  let
+    eb = updated db
   ti <- textInput $
     def & textInputConfig_initialValue .~ mt ib
         & setValue .~ (mt <$> eb)
         & attributes .~ fmap (addClass "form-control") da
 
   let
-    eValidate = void . ffilter not . updated . _textInput_hasFocus $ ti
+    eValidate = leftmost [ev, void . ffilter not . updated . _textInput_hasFocus $ ti]
     eChange = tm <$> current (value ti) <@ eValidate
 
   pure eChange
@@ -75,19 +77,21 @@ data RadioButtonConfig t =
 
 radioButton :: MonadWidget t m
             => Text
-            -> Bool
-            -> Event t Bool
+            -> Dynamic t (Maybe Bool)
             -> Dynamic t (Map Text Text)
             -> RadioButtonConfig t
             -> m (Event t Bool)
-radioButton name checked e dSetAttrs c = do
+radioButton name d dSetAttrs c = do
+  checked <- sample . current $ d
+  let
+    e = updated d
   -- TODO prune out bad attributes (checked at least, probably also name and value, maybe id)
   let permanentAttrs = "type" =: "radio" <> "name" =: name <> "id" =: rbcId c <> "value" =: rbcValue c
       dAttrs = Map.delete "checked" . Map.union permanentAttrs <$> rbcAttributes c <> dSetAttrs
   modifyAttrs <- dynamicAttributesToModifyAttributes dAttrs
   i <- inputElement $ def
-    & inputElementConfig_initialChecked .~ checked
-    & inputElementConfig_setChecked .~ e
+    & inputElementConfig_initialChecked .~ fromMaybe False checked
+    & inputElementConfig_setChecked .~ fmapMaybe id e
     & inputElementConfig_elementConfig . elementConfig_initialAttributes .~ Map.mapKeys (AttributeName Nothing) permanentAttrs
     & inputElementConfig_elementConfig . elementConfig_modifyAttributes .~ fmap mapKeysToAttributeName modifyAttrs
   return $ _inputElement_checkedChange i
@@ -97,8 +101,7 @@ data RadioButtonSetConfig t a =
   RadioButtonSetConfig {
     rbscName :: Text
   , rbcsButtons :: [(a, RadioButtonConfig t)]
-  , rbcsInitialValue :: Maybe a
-  , rbcsSetValue :: Event t a
+  , rbcsValue :: Dynamic t (Maybe a)
   , rbcsAttributes :: Dynamic t (Map Text Text)
   }
 
@@ -117,24 +120,25 @@ radioButtonSet c fn = do
     case lookup a (rbcsButtons c) of
       Nothing -> pure ()
       Just rbc -> do
-        e <- radioButton (rbscName c) (Just a == rbcsInitialValue c) (fmap (== a) . rbcsSetValue $ c) (rbcsAttributes c) rbc
+        e <- radioButton (rbscName c) (fmap (== a) <$> rbcsValue c) (rbcsAttributes c) rbc
         tellEvent $ First a <$ ffilter id e
   let e = getFirst <$> ef
-  d <- holdDyn (rbcsInitialValue c) $ Just <$> e
+  -- i <- sample . current . rbcsValue $ c
+  let i = Nothing
+  d <- holdDyn i $ Just <$> e
   pure $ RadioButtonSet d e
 
 formRadios :: (MonadWidget t m, Ord a, Show a, HasErrorMessage e)
            => [(Text, a)]
            -> Id
-           -> Maybe a
-           -> Event t (Maybe a)
+           -> Dynamic t (Maybe a)
            -> Dynamic t [e]
            -> m (Event t (Maybe a))
-formRadios rs (Id i) ia ea de = divClass "form-group" $ do
+formRadios rs (Id i) da de = divClass "form-group" $ do
   let
     f j (l, v) = (v, RadioButtonConfig ((i <>) . ("-" <>) . Text.pack . show $ j) (Text.pack . show $ v) l mempty)
     m = zipWith f [0..] rs
-    c = RadioButtonSetConfig i m ia (fmapMaybe id ea) (("class" =:) <$> pure "form-check-input " <> bool "is-invalid" "is-valid" . null <$> de)
+    c = RadioButtonSetConfig i m da (("class" =:) <$> pure "form-check-input " <> bool "is-invalid" "is-valid" . null <$> de)
   rbs <- radioButtonSet c $ \fn -> forM_ m $ \(a, rbc) -> divClass "form-check" $ do
     fn a
     elAttr "label" ("class" =: "form-check-label" <> "for" =: rbcId rbc) $ text (rbcLabel rbc)
@@ -161,19 +165,19 @@ addClass cls =
 wrapBootstrapFormInput :: (MonadWidget t m, HasErrorMessage e)
                        => Text
                        -> Id
-                       -> (Dynamic t (Map Text Text) -> Maybe b -> Event t (Maybe b) -> m (Event t (Maybe b)))
-                       -> Maybe b
-                       -> Event t (Maybe b)
+                       -> (Dynamic t (Map Text Text) -> Dynamic t (Maybe b) -> Event t () -> m (Event t (Maybe b)))
+                       -> Dynamic t (Maybe b)
                        -> Dynamic t [e]
+                       -> Event t ()
                        -> m (Event t (Maybe b))
-wrapBootstrapFormInput l (Id i) widgetFn ib eb de =
+wrapBootstrapFormInput l (Id i) widgetFn db de ev =
   divClass "form-group" $ do
     elAttr "label" ("for" =: i) $ text l
 
     let
       dValidClass = ("class" =:) . bool "is-invalid" "is-valid" . null <$> de
       dAttrs = pure ("id" =: i) <> dValidClass
-    eChange <- widgetFn dAttrs ib eb
+    eChange <- widgetFn dAttrs db ev
 
     void . simpleList de $
       divClass "invalid-feedback" .

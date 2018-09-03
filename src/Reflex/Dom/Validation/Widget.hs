@@ -28,7 +28,7 @@ import GHCJS.DOM.ValidityState
 
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
-import Data.Validation (Validation(..))
+import Data.Validation (Validation(..), toEither)
 
 import Reflex.Dom.Validation
 
@@ -116,7 +116,7 @@ data ValidInput t e a =
   , viHasFocus :: Dynamic t Bool
   }
 
-valid :: (MonadWidget t m, AsValidityError e)
+valid :: (MonadWidget t m, AsValidityError e, HasErrorMessage e, Show a)
       => ValidInputConfig t e a
       -> m (ValidInput t e a)
 valid (ValidInputConfig vTo vFrom vType initial eSetValue dAttrs) = do
@@ -131,11 +131,19 @@ valid (ValidInputConfig vTo vFrom vType initial eSetValue dAttrs) = do
       v <- (>>= checkValid) . getValidity . _inputElement_raw $ i
       pure $ vFrom x <* v
 
-  input' <- performEvent $ check <$> _inputElement_input i
+  let
+    eUserChange = _inputElement_input i
+    eValidate = current (_inputElement_value i) <@ (ffilter not . updated . _inputElement_hasFocus $ i)
+  input' <- performEvent $ check <$> leftmost [eUserChange, eValidate]
+
+  d <- holdDyn (vFrom "") input'
+  display $ either (show . fmap errorMessage) show . toEither <$> d
 
   let initial' = maybe (Failure . pure $ _ValidityError # ValueMissing) Success initial
   updated' <- performEvent $ check <$> updated (_inputElement_value i)
   value' <- holdDyn initial' updated'
+
+  -- display $ either (show . fmap errorMessage) show . toEither <$> value'
 
   return $ ValidInput
     value'

@@ -17,6 +17,7 @@ Portability : non-portable
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeApplications #-}
 module Demo where
 
 import Control.Monad (join, void)
@@ -40,6 +41,7 @@ import Data.Dependent.Map (Some(..))
 
 import Data.GADT.Compare (GEq(..), GCompare(..), (:~:)(..), GOrdering(..))
 
+import Data.List.NonEmpty (NonEmpty(..))
 import Data.Validation
 
 import Reflex.Dom.Core
@@ -57,40 +59,42 @@ import Reflex.Dom.Storage.Base
 import Data.GADT.Aeson
 
 boolW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-      => FieldWidget t m r e (Wrap Bool)
+      => FieldWidgetConfig t m r e (Wrap Bool)
 boolW =
-  mkFieldWidget .
-  FieldWidgetConfig required .
-  const $
-  formRadios [("True", True), ("False", False)]
+  wrapFieldWidgetConfig .
+  FieldWidgetConfig' required $ \i dr da de _ ->
+    formRadios [("True", True), ("False", False)] i da de
 
 class AsReasonNotGiven e where
   _ReasonNotGiven :: Prism' e ()
 
 reasonW :: (MonadWidget t m, HasErrorMessage e, AsReasonNotGiven e)
-        => FieldWidget t m (Wrap Bool Maybe) e (Wrap (Maybe Text))
+        => FieldWidgetConfig t m (Wrap Bool Maybe) e (Wrap (Maybe Text))
 reasonW =
   let
-    validate (Wrap (Just False)) i v =
+    validate i (Wrap (Just False)) v =
       let
         x = fromMaybe "" (join v)
       in
         if Text.null x
         then Failure . pure . WithId i $ _ReasonNotGiven # ()
-        else Success . Identity . Just $ x
+        else Success . Just $ x
     validate _ _ _ =
-      Success . Identity $ Nothing
+      Success Nothing
 
-    render dr i mmt emmt de =
+    render i dr dmmt de ev =
       let
         hideMe = "hidden" =: ""
-        dAttrs = bool mempty hideMe . fromMaybe True . unWrap <$> dr
-      in
-        elDynAttr "div" dAttrs $ do
-          e <- formText "Reason" i (join mmt) (join <$> emmt) de
-          pure $ fmap Just <$> e
+        dHide = fromMaybe True . unWrap <$> dr
+        dAttrs = bool mempty hideMe <$> dHide
+      in do
+        eShow <- elDynAttr "div" dAttrs $
+          formText "Reason" i (join <$> dmmt) de ev
+        pure $ leftmost [ fmap Just <$> gate (not <$> current dHide) eShow
+                        , Nothing <$ gate (current dHide) ev
+                        ]
   in
-    mkFieldWidget $ FieldWidgetConfig validate render
+    wrapFieldWidgetConfig $ FieldWidgetConfig' validate render
 
 data Complete f =
   Complete {
@@ -101,6 +105,8 @@ data Complete f =
 deriving instance Generic (Complete Maybe)
 deriving instance Show (Complete Maybe)
 deriving instance Show (Complete Identity)
+deriving instance Eq (Complete Maybe)
+deriving instance Eq e => Eq (Complete (Validation (NonEmpty (WithId e))))
 
 instance ToJSON (Complete Maybe) where
 instance FromJSON (Complete Maybe) where
@@ -112,18 +118,18 @@ instance NFunctor Complete where
 makeLenses ''Complete
 
 completeBool :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-             => Field t m r e Complete
+             => F t m r e Complete
 completeBool =
-  Field const (<> "-c") cComplete boolW
+  F (<> "-c") const cComplete boolW
 
 completeReason :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e)
-               => Field t m r e Complete
+               => F t m r e Complete
 completeReason =
-  Field (const $ view cComplete) (<> "-r") cReason reasonW
+  F (<> "-r") (const $ view cComplete) cReason reasonW
 
-completeW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e)
-            => FieldWidget t m r e Complete
-completeW = nest $ \child ->
+completeW :: forall t m r e. (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e)
+            => FW t m r e Complete
+completeW = nestF $ \child ->
   el "fieldset" $ do
     el "legend" $ text "Complete"
     child completeBool
@@ -138,6 +144,8 @@ data Nest f =
 deriving instance Generic (Nest Maybe)
 deriving instance Show (Nest Maybe)
 deriving instance Show (Nest Identity)
+deriving instance Eq (Nest Maybe)
+deriving instance Eq e => Eq (Nest (Validation (NonEmpty (WithId e))))
 
 instance ToJSON (Nest Maybe) where
 instance FromJSON (Nest Maybe) where
@@ -148,59 +156,61 @@ instance NFunctor Nest where
 
 makeLenses ''Nest
 
-nestComplete1 :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e)
-             => Field t m r e Nest
+nestComplete1 :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e, Eq e)
+             => F t m r e Nest
 nestComplete1 =
-  Field const (<> "-1") nComplete1 completeW
+  F (<> "-1") const nComplete1 completeW
 
-nestComplete2 :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e)
-             => Field t m r e Nest
+nestComplete2 :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e, Eq e)
+             => F t m r e Nest
 nestComplete2 =
-  Field const (<> "-2") nComplete2 completeW
+  F (<> "-2") const nComplete2 completeW
 
-nestWList :: forall t m r e. (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e)
-          => Proxy e
-          -> FieldWidget t m r e Nest
-nestWList _ =
-  workflowList listButtons [
-    workflowField nestComplete1
-  , workflowWidget $ text "Half way"
-  , workflowField nestComplete2
-  , workflowWidget $ text "Done!"
-  ]
+-- nestWList :: forall t m r e. (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e)
+--           => Proxy e
+--           -> FieldWidget t m r e Nest
+-- nestWList _ =
+--   workflowList listButtons [
+--     workflowField nestComplete1
+--   , workflowWidget $ text "Half way"
+--   , workflowField nestComplete2
+--   , workflowWidget $ text "Done!"
+--   ]
 
-nestW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e)
+nestW :: forall t m r e. (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e, Eq e)
       => Proxy e
-      -> FieldWidget t m r e Nest
-nestW _ = nest $ \child ->
+      -> FW t m r e Nest
+nestW _ = nestF $ \child ->
   el "fieldset" $ do
     el "legend" $ text "Nested"
     -- n <- number $ NumberInputConfig (Just 3) never (pure $ "min" =: "2" <> "max" =: "5")
     child nestComplete1
     child nestComplete2
 
-nestWWorkflow :: forall t m r e. (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e)
+nestWWorkflow :: forall t m r e. (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsReasonNotGiven e, Eq e)
                 => Proxy e
-                -> FieldWidget t m r e Nest
+                -> FW t m r e Nest
 nestWWorkflow _ = nestWorkflow $ \formFn ->
   let
-    w1 = formFn $ FieldPiece (pure never) w1Buttons nestComplete1
-    w1Buttons = do
+    w1 = Workflow $ mdo
+      eGo' <- formFn nestComplete1 eGo
       eNext <- button "Next"
-      pure $ FieldAction w2 Validated Update <$ eNext
+      let eGo = FieldAction w2 Validated Update <$ eNext
+      pure ((), faWorkflow <$> eGo')
 
-    w2 = formFn $ FieldPiece (pure never) w2Buttons nestComplete2
-    w2Buttons = do
+    w2 = Workflow $ mdo
+      eGo' <- formFn nestComplete2 eGo
       eBack <- button "Back"
       eNext <- button "Next"
-      pure $ leftmost [ FieldAction w1 Unvalidated Update <$ eBack
-                      , FieldAction w3 Validated Update  <$ eNext
-                      ]
+      let eGo = leftmost [ FieldAction w1 Unvalidated Update <$ eBack
+                         , FieldAction w3 Validated Update  <$ eNext
+                         ]
+      pure ((), faWorkflow <$> eGo')
 
-    w3 = formFn $ WidgetPiece $ do
+    w3 = Workflow $ do
       text "Done!"
       eBack <- button "Back"
-      pure $ FieldAction w2 Unvalidated Update <$ eBack
+      pure ((), w2 <$ eBack)
   in
     w1
 
@@ -233,12 +243,14 @@ data TestError =
     ENotSpecified
   | EIntNotInt
   | EReasonNotGiven
+  | EValidityError ValidityError
   deriving (Eq, Ord, Show)
 
 instance HasErrorMessage TestError where
   errorMessage ENotSpecified = "This is a required field"
   errorMessage EIntNotInt = "This needs to be an integer"
   errorMessage EReasonNotGiven = "This field is required if XYZ is False"
+  errorMessage (EValidityError v) = errorMessage v
 
 makePrisms ''TestError
 
@@ -248,12 +260,15 @@ instance AsNotSpecified TestError where
 instance AsReasonNotGiven TestError where
   _ReasonNotGiven = _EReasonNotGiven
 
+instance AsValidityError TestError where
+  _ValidityError = _EValidityError
+
 -- better demo
 -- name / email (email input) / password (password input, 2 copies that must match) on page 1
 -- address on page 2 (shipping / billing, with a "same as shipping" button)
 
 nameW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-       => FieldWidget t m r e (Wrap Text)
+       => FieldWidgetConfig t m r e (Wrap Text)
 nameW =
   requiredText "Name"
 
@@ -272,17 +287,23 @@ instance NFunctor Email where
 
 makeWrapped ''Email
 
-emailW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-       => FieldWidget t m r e Email
-emailW = nest $ \child -> child $ Field const id _Wrapped $
-  requiredText "Email"
-  -- let
-  --   validate r i mt =
-  --     _
-  --   render dr i = wrapBootstrapFormInput "Email" i $ \dAttr mb emb ->
-  --     _
-  -- in
-  --   mkFieldWidget $ FieldWidgetConfig validate render
+emailW :: forall t m r e. (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsValidityError e)
+       => FieldWidgetConfig t m r e Email
+emailW = nest requiredNF $ \child -> child $ Field const id _Wrapped $
+  -- requiredText "Email"
+  let
+    validate i r Nothing =
+      Failure . pure . WithId i $ _NotSpecified # ()
+    validate i r (Just t) =
+      Success t
+    render :: Id -> Dynamic t r -> Dynamic t (Maybe Text) -> Dynamic t [e] -> Event t () -> m (Event t (Maybe Text))
+    render i _ = wrapBootstrapFormInput "Email" i $ \dAttr dmt eV -> do
+      ia <- sample . current $ dmt
+      let ea = fmapMaybe id . updated $ dmt
+      vi <- valid $ (ValidInputConfig id Success "email" ia ea (fmap (addClass "form-control") dAttr) :: ValidInputConfig t e Text)
+      pure $ either (const Nothing) Just . toEither <$> viInput vi
+  in
+    wrapFieldWidgetConfig $ FieldWidgetConfig' validate render
 
 newtype Password f =
   Password {
@@ -300,8 +321,8 @@ instance NFunctor Password where
 makeWrapped ''Password
 
 passwordW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-          => FieldWidget t m r e Password
-passwordW = nest $ \child -> child $ Field const id _Wrapped $
+          => FieldWidgetConfig t m r e Password
+passwordW = nest requiredNF $ \child -> child $ Field const id _Wrapped $
   requiredText "Password"
 
 data Address f =
@@ -324,8 +345,8 @@ makeLenses ''Address
 
 -- TODO the Bool context should be used to make text fields writeable / read-only
 addressW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-         => FieldWidget t m Bool e Address
-addressW = nest $ \child ->
+         => FieldWidgetConfig t m Bool e Address
+addressW = nest requiredNF $ \child ->
   traverse_ (toFormRow . child)
     [ Field const (<> "-street") aStreet $
       requiredText "Street"
@@ -338,8 +359,8 @@ addressW = nest $ \child ->
     ]
 
 billingW :: forall t m e. (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-         => FieldWidget t m (Address Maybe, Wrap Bool Maybe) e Address
-billingW = FieldWidget' $ \dr i a ea ev -> do
+         => FieldWidgetConfig t m (Address Maybe, Wrap Bool Maybe) e Address
+billingW = FieldWidgetConfig' undefined $ \i dr da de ev -> do
   -- ir <- sample . current $ dr
   -- let
   --   er = updated dr
@@ -357,7 +378,8 @@ billingW = FieldWidget' $ \dr i a ea ev -> do
   -- otherwise:
   -- - is just addressW with editable fields
 
-  runFieldWidget (addressW :: FieldWidget t m Bool e Address) (pure True) i a ea ev
+  -- runFieldWidget (addressW :: FieldWidget t m Bool e Address) (pure True) i da ev
+  undefined
 
 data Page1 f =
   Page1 {
@@ -376,6 +398,19 @@ instance NFunctor Page1 where
 
 makeLenses ''Page1
 
+page1W :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsValidityError e)
+       => FieldWidgetConfig t m r e Page1
+page1W = nest requiredNF $ \child -> do
+  el "h3" $ text "Page 1"
+  traverse_ (toFormRow . child)
+    [ Field const (<> "-name") p1Name
+        nameW
+    , Field const (<> "-email") p1Email
+        emailW
+    , Field const (<> "-password") p1Password
+        passwordW
+    ]
+
 data Page2 f =
   Page2 {
     _p2Shipping :: Address f
@@ -393,6 +428,19 @@ instance NFunctor Page2 where
 
 makeLenses ''Page2
 
+page2W :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
+       => FieldWidgetConfig t m r e Page2
+page2W = nest requiredNF $ \child -> do
+  el "h3" $ text "Page 2"
+  traverse_ (toFormRow . child)
+    [ Field (\_ _ -> True) (<> "-shipping") p2Shipping
+        addressW
+    , Field const (<> "-same") p2BillingSameAsShipping
+        boolW
+    , Field (\_ p2 -> (view p2Shipping p2, view p2BillingSameAsShipping p2)) (<> "-billing") p2Billing
+        billingW
+    ]
+
 data DemoApp f =
   DemoApp {
     _daPage1 :: Page1 f
@@ -409,33 +457,7 @@ instance NFunctor DemoApp where
 
 makeLenses ''DemoApp
 
-page1W :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-       => FieldWidget t m r e Page1
-page1W = nest $ \child -> do
-  el "h3" $ text "Page 1"
-  traverse_ (toFormRow . child)
-    [ Field const (<> "-name") p1Name
-        nameW
-    , Field const (<> "-email") p1Email
-        emailW
-    , Field const (<> "-password") p1Password
-        passwordW
-    ]
-
-page2W :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
-       => FieldWidget t m r e Page2
-page2W = nest $ \child -> do
-  el "h3" $ text "Page 2"
-  traverse_ (toFormRow . child)
-    [ Field (\_ _ -> True) (<> "-shipping") p2Shipping
-        addressW
-    , Field const (<> "-same") p2BillingSameAsShipping
-        boolW
-    , Field (\_ p2 -> (view p2Shipping p2, view p2BillingSameAsShipping p2)) (<> "-billing") p2Billing
-        billingW
-    ]
-
-demoAppW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e)
+demoAppW :: (MonadWidget t m, HasErrorMessage e, AsNotSpecified e, AsValidityError e)
          => Proxy e
          -> FieldWidget t m r e DemoApp
 demoAppW _ =
@@ -466,8 +488,12 @@ deriving instance Show (DemoApp Identity)
 
 runNest :: forall t m. MonadWidget t m => m ()
 runNest = mdo
-  -- _ <- runFieldWidgetWithStorage LocalStorage NestTag (nestWList (Proxy :: Proxy TestError)) (pure ()) mempty eV
-  _ <- runFieldWidget (demoAppW (Proxy :: Proxy TestError)) (pure ()) mempty nempty never never
+  -- dState <- foldDyn ($) nempty eState
+  -- eState <- runFieldWidget (mkFieldWidget' $ nestW (Proxy :: Proxy TestError)) mempty (pure ()) dState eV
+  -- -- _ <- runFieldWidgetWithStorage LocalStorage NestTag (mkFieldWidget' $ nestW (Proxy :: Proxy TestError)) mempty (pure ()) eV
+  -- eV <- button "Validate"
+  dState <- foldDyn ($) nempty eState
+  eState <- runFieldWidget (demoAppW (Proxy :: Proxy TestError)) mempty (pure ()) dState never
   pure ()
 
 myTest :: IO ()

@@ -34,17 +34,12 @@ runFieldWidgetWithStorage :: ( MonadWidget t m
                           => StorageType
                           -> k (ty Maybe)
                           -> FieldWidget t m r e ty
-                          -> Dynamic t r
                           -> Id
+                          -> Dynamic t r
                           -> Event t ()
-                          -> m (Dynamic t (ty Maybe), Event t (ty Identity))
-runFieldWidgetWithStorage st k fw dr i ev = runStorageT st $ do
+                          -> m (Event t (ty Maybe -> ty Maybe))
+runFieldWidgetWithStorage st k fw i dr ev = runStorageT st $ do
   dStorage <- askStorageTagDef k nempty
-  iStorage <- sample . current $ dStorage
-  let eStorage = updated dStorage
-
-  (ds, es) <- lift $ runFieldWidget fw dr i iStorage eStorage ev
-
-  tellStorageInsert k (updated ds)
-
-  pure (ds, es)
+  ea <- lift $ runFieldWidget fw i dr dStorage ev
+  tellStorageInsert k $ (&) <$> current dStorage <@> ea
+  pure ea

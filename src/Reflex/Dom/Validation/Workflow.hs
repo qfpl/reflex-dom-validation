@@ -14,8 +14,7 @@ module Reflex.Dom.Validation.Workflow (
     FieldCheck(..)
   , FieldTransitionAction(..)
   , FieldAction(..)
-  , WorkflowForm(..)
-  , WorkflowPiece(..)
+  , WorkflowPiece
   , nestWorkflow
   , WLDirection(..)
   , workflowList
@@ -35,10 +34,7 @@ import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
 
-newtype WorkflowForm t m a =
-  WorkflowForm {
-    unWorkflowForm :: a -> Workflow t (EventWriterT t (Endo a) m) ()
-  }
+import Data.Validation (toEither)
 
 data FieldCheck =
   Validated | Unvalidated
@@ -48,36 +44,22 @@ data FieldTransitionAction =
   Update | OldValue | EmptyValue
   deriving (Eq, Ord, Show, Read)
 
-data FieldAction t m a =
+data FieldAction t m e a =
   FieldAction {
-    faWorkflow :: WorkflowForm t m a
+    faWorkflow :: Workflow t (EventWriterT t (NestW e a) m) ()
   , faCheck :: FieldCheck
   , faTransition :: FieldTransitionAction
   }
 
-splitCheck :: FieldAction t m a
-           -> Either (FieldAction t m a) (FieldAction t m a)
+splitCheck :: FieldAction t m e a
+           -> Either (FieldAction t m e a) (FieldAction t m e a)
 splitCheck fa@(FieldAction _ Validated _) = Left fa
 splitCheck fa@(FieldAction _ Unvalidated _) = Right fa
-
-toWorkflow :: NFunctor a'
-           => Lens' (a Maybe) (a' Maybe)
-           -> a Maybe
-           -> a' Maybe
-           -> a Maybe
-           -> FieldAction t m (a Maybe)
-           -> Workflow t (EventWriterT t (Endo (a Maybe)) m) ()
-toWorkflow l _ na' a (FieldAction fw _ Update) =
-  unWorkflowForm fw (set l na' a)
-toWorkflow _ oa' _ _ (FieldAction fw _ OldValue) =
-  unWorkflowForm fw oa'
-toWorkflow l _ _ a (FieldAction fw _ EmptyValue) =
-  unWorkflowForm fw (set l nempty a)
 
 actionToEndo :: NFunctor a'
              => Lens' (a Maybe) (a' Maybe)
              -> a Maybe
-             -> FieldAction t m (a Maybe)
+             -> FieldAction t m e a
              -> Maybe (Endo (a Maybe))
 actionToEndo _ _ (FieldAction _ _ Update) =
   Nothing
@@ -87,7 +69,7 @@ actionToEndo l _ (FieldAction _ _ EmptyValue) =
   Just . Endo $ set l nempty
 
 type WorkflowPiece t m r e a =
-  Piece t m r e a (Event t (FieldAction t m (a Maybe)))
+  Piece t m r e a (Event t (FieldAction t m e a))
 
 workflowField :: (Reflex t, Monad m) => Field t m r e a -> WorkflowPiece t m r e a
 workflowField =
@@ -98,40 +80,37 @@ workflowWidget m =
   WidgetPiece (m >> pure never)
 
 nestWorkflow :: forall t m r e a. (MonadWidget t m, NFunctor a)
-             => ((WorkflowPiece t m r e a -> WorkflowForm t m (a Maybe)) -> WorkflowForm t m (a Maybe))
-             -> FieldWidget t m r e a
-nestWorkflow mkW = FieldWidget' $ \dr i a ea ev -> mdo
+             => ((F t m r e a -> Event t (FieldAction t m e a)-> EventWriterT t (NestW e a) m (Event t (FieldAction t m e a))) -> Workflow t (EventWriterT t (NestW e a) m) ())
+             -> FW t m r e a
+nestWorkflow mkW = FW . FW' $ \i dr da db ev -> do
   let
-    ea' = leftmost [ea, updated dState]
+    w =
+      mkW $ \(F iFn rFn l (FW (FW' fn))) e -> do
+        ia <- sample . current $ da
+        da' <- holdUniqDyn $ view l <$> da
+        db' <- holdUniqDyn $ view l <$> db
+        let (eChecked, eUnchecked) = fanEither $ splitCheck <$> e
+        (ea, eb) <- lift $
+          fn
+            (iFn i)
+            (rFn <$> dr <*> da)
+            da'
+            db'
+            (leftmost [ev, void eChecked])
+        tellEvent $ toPre . Endo . over l . appEndo <$> ea
+        tellEvent $ toPost . Endo . over l . appEndo <$> eb
 
-    w = mkW $ \wp -> case wp of
-      FieldPiece pre post (Field ctx idFn l fw) -> WorkflowForm $ \a' -> Workflow $ mdo
-        ePre <- lift pre
-        (dc, ec) <- lift $
-          runFieldWidget
-            fw
-            (ctx <$> dr <*> dState)
-            (idFn i)
-            (view l a')
-            (view l <$> ea')
-            (leftmost [ev, void eChangeV])
-        ePost <- lift post
+
         let
-          eChange = leftmost [ePre, ePost]
-          (eChangeV, eChangeU) = fanEither $ splitCheck <$> eChange
-          eChange' = leftmost [coincidence $ eChangeV <$ ec, eChangeU]
+          eb' = (\x (Endo f) -> f x) <$> current db' <@> eb
+          eb'' = fmapMaybe id $ ntraverse (either (const Nothing) (Just . Identity) . toEither) <$> eb'
+          e' = leftmost [eUnchecked, coincidence $ eChecked <$ eb'']
+        tellEvent . fmapMaybe id $ fmap toPre . actionToEndo l ia <$> e'
 
-        tellEvent $ Endo . set l <$> updated dc
-        tellEvent $ fmapMaybe (actionToEndo l a') eChange'
+        pure e'
 
-        pure ((), toWorkflow l a' <$> current dc <*> current dState <@> eChange')
-      WidgetPiece p -> WorkflowForm $ \a' -> Workflow $ do
-        eChange <- lift p
-        pure ((), ($ a') . unWorkflowForm . faWorkflow <$> eChange)
-
-  (_, eE) <- runEventWriterT $ workflow $ unWorkflowForm w a
-  dState <- foldDyn ($) a $ appEndo <$> eE
-  pure (dState, fmapMaybe id $ ntraverse (fmap Identity) <$> updated dState)
+  (_, eE) <- runEventWriterT $ workflow $ w
+  pure (_nwPreValidation <$> eE, _nwPostValidation <$> eE)
 
 data WLDirection =
   WLBack | WLNext
@@ -139,10 +118,10 @@ data WLDirection =
 
 workflowList :: (MonadWidget t m, NFunctor a)
              => (Bool -> Bool -> m (Event t WLDirection))
-             -> [WorkflowPiece t m r e a]
-             -> FieldWidget t m r e a
+             -> [F t m r e a]
+             -> FW t m r e a
 workflowList _ [] =
-  blankFieldWidget
+  blankFW
 workflowList fn ps = nestWorkflow $ \wfn ->
   let
     len = length ps
@@ -156,14 +135,10 @@ workflowList fn ps = nestWorkflow $ \wfn ->
       e <- fn (i == 0) (i == len - 1)
       pure $ toAction i <$> e
 
-    mkPost post i = do
-      e1 <- post
-      e2 <- mkButton i
-      pure . leftmost $ [e1, e2]
-    f i (FieldPiece pre post f) =
-      wfn $ FieldPiece pre (mkPost post i) f
-    f i (WidgetPiece m) =
-      wfn $ WidgetPiece (m >> mkButton i)
+    f i field = Workflow $ mdo
+      eButton' <- wfn field eButton
+      eButton <- lift $ mkButton i
+      pure ((), faWorkflow <$> eButton')
 
     ps' = zipWith f [0..] ps
   in
