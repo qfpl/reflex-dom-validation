@@ -54,3 +54,7 @@ What are the pieces that we will need for this?
 - it would be nice to build up the tools to combine the `Id -> ctx -> f Maybe -> f (Validation (NonEmpty (WithId e)))` or `ctx -> f Maybe -> f (Validation (NonEmpty e))` bits on their own
 - then our widgets can display their widgets, and on changes, can validate the sub parts and then the whole
 
+
+- do we want a context, or do we want to generate contextual errors at the level where we have the context, and 
+  possibly have mechanism to hint which subcomponent the context error should be attached to?
+

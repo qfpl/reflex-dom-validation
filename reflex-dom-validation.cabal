@@ -14,11 +14,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Reflex.Dom.Validation
-                     , Reflex.Dom.Validation.Storage
-                     , Reflex.Dom.Validation.Workflow
-                     , Reflex.Dom.Validation.Widget
                      , Bootstrap
-                     , Bootstrap.Form
                      , Demo
   build-depends:       base >=4.9 && <4.11
                      , mtl
