@@ -6,14 +6,13 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecursiveDo #-}
 module Demo where
 
 import Reflex.Dom.Core
 
 import Bootstrap
 
-import Reflex.Dom.Validation
+import Demo.Example
 
 myTest :: IO ()
 myTest = debugApp 8080 $ divClass "container" $ do

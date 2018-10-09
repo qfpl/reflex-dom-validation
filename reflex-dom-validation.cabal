@@ -16,6 +16,13 @@ library
   exposed-modules:     Reflex.Dom.Validation
                      , Bootstrap
                      , Demo
+                     , Demo.Example
+                     , Demo.Example.Completed
+                     , Demo.Example.Reason
+                     , Demo.Example.CompletedWithReason
+                     , Demo.Example.TodoItem
+                     , Demo.Example.TestCollections
+                     , Demo.Example.Error
   build-depends:       base >=4.9 && <4.11
                      , mtl
                      , validation
