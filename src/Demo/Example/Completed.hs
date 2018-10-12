@@ -7,6 +7,7 @@ Portability : non-portable
 -}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MonoLocalBinds #-}
 module Demo.Example.Completed (
     AsCompleted(..)
   , completedF

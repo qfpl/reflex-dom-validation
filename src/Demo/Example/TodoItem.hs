@@ -9,6 +9,7 @@ Portability : non-portable
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MonoLocalBinds #-}
 module Demo.Example.TodoItem (
     TodoItem(..)
   , todoItemF

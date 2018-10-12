@@ -7,6 +7,7 @@ Portability : non-portable
 -}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MonoLocalBinds #-}
 module Demo.Example (
     go
   ) where

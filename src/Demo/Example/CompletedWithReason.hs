@@ -11,6 +11,7 @@ Portability : non-portable
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MonoLocalBinds #-}
 module Demo.Example.CompletedWithReason (
     HasReasonRequiredForIncomplete(..)
   , AsCompletedWithReason(..)

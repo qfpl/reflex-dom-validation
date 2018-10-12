@@ -23,7 +23,7 @@ library
                      , Demo.Example.TodoItem
                      , Demo.Example.TestCollections
                      , Demo.Example.Error
-  build-depends:       base >=4.9 && <4.11
+  build-depends:       base >=4.9 && <4.13
                      , mtl
                      , validation
                      , text

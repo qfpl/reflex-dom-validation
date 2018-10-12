@@ -10,6 +10,7 @@ Portability : non-portable
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE MonoLocalBinds #-}
 module Demo.Example.TestCollections (
     HasCollectionTooSmall(..)
   , AsTestCollections(..)
