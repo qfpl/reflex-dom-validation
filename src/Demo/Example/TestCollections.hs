@@ -31,6 +31,7 @@ import Data.Validation
 import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Collection
 
 import Bootstrap
 
@@ -108,4 +109,4 @@ togglesF =
     deleteMe =
       buttonClass "Remove" "btn"
   in
-    liftF todoItems (\i -> Id (Just i) "-ts") todoItemF addMe deleteMe
+    collectionF todoItems (\i -> Id (Just i) "-ts") todoItemF addMe deleteMe

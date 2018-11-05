@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Reflex.Dom.Validation
+                     , Reflex.Dom.Validation.Collection
                      , Bootstrap
                      , Demo
                      , Demo.Example
