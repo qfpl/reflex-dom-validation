@@ -61,16 +61,14 @@ completedWithReasonV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasNo
 completedWithReasonV _ _ i cr =
   let
     fC = completedF :: Field t m e CompletedWithReason (Wrap Bool)
-    vC = fieldValidation fC i cr
     fR = reasonF :: Field t m e CompletedWithReason (Wrap (Maybe Text))
-    vR = fieldValidation fR i cr
     f c r =
       if unwrapV c == False && unwrapV r == Nothing
       then Failure . pure . WithId (fieldId fR i) $ _ReasonRequiredForIncomplete # ()
       else Success $ CompletedWithReason c r
   in
-    vC `bindValidation` \c ->
-    vR `bindValidation` \r ->
+    fieldValidation fC i cr `bindValidation` \c ->
+    fieldValidation fR i cr `bindValidation` \r ->
     f c r
 
 completedWithReasonW :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
