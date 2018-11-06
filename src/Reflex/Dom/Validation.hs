@@ -74,6 +74,9 @@ data WithId a = WithId { _wiId :: Id, _wiValue :: a }
 
 makeLenses ''WithId
 
+hasMatchingErrors :: Id -> [WithId e] -> Bool
+hasMatchingErrors i = any ((== i) . view wiId)
+
 class HasErrorMessage e where
   errorMessage :: e -> Text
 
@@ -119,19 +122,8 @@ required :: HasNotSpecified e => ValidationFn e (Wrap a) (Wrap a)
 required i (Wrap m) =
   maybe (Failure . pure . WithId i $ _NotSpecified # ()) (Success . Wrap . Identity) m
 
-errorsForId :: (MonadWidget t m, HasErrorMessage e)
-            => Id -> Dynamic t [WithId e] -> m ()
-errorsForId i des =
-  let
-    dErrors = fmap (view wiValue) . ffilter ((== i) . view wiId) <$> des
-  in
-    divClass "invalid-feedback" . void . simpleList dErrors $
-      dynText . fmap errorMessage
-
 class HasNotSpecified e where
   _NotSpecified :: Prism' e ()
-
-
 
 -- this puts a potential validation button at the bottom, which might not be what we want in all cases
 wrapUp :: MonadWidget t m

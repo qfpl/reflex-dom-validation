@@ -30,6 +30,8 @@ import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
 
+import Reflex.Dom.Validation.Bootstrap.Errors
+
 data TodoItem f =
   TodoItem {
     _tiComplete :: Wrap Bool f

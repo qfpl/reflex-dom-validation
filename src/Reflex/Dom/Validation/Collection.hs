@@ -8,6 +8,7 @@ Portability : non-portable
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MonoLocalBinds #-}
 module Reflex.Dom.Validation.Collection (
     HasCollectionKey(..)
   , collectionF
@@ -29,6 +30,8 @@ import qualified Data.Map as Map
 import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
+
+import Reflex.Dom.Validation.Bootstrap.Errors
 
 class HasCollectionKey k where
   keyId :: k -> Text
