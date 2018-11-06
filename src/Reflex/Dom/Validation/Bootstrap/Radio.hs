@@ -56,11 +56,12 @@ radioWidget rwc i dv des = divClass "form-group" $ do
   let
     it = idToText i
     cls = "form-check " <> bool " form-check-inline" "" (rwc ^. rwcStacked)
+    wrapGroup = maybe id (const $ divClass "form-group") (rwc ^. rwcLabel)
 
-  es <- divClass "form-group" . forM (rwc ^. rwcValues) $ \(RadioOptionConfig kl ki v) -> divClass cls $ do
+  es <- wrapGroup . forM (rwc ^. rwcValues) $ \(RadioOptionConfig kl ki v) -> divClass cls $ do
     let
       itt = it <> ki
-      f = maybe False (== v) . unWrap
+      f = (== Just v) . unWrap
       dv' = f <$> dv
     iv <- sample . current $ dv'
     let ev = updated dv'
