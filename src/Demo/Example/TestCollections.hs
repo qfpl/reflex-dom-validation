@@ -23,6 +23,7 @@ import Data.Semigroup (Semigroup(..))
 import Data.Proxy (Proxy(..))
 
 import Data.Map (Map)
+import qualified Data.Text as Text
 
 import Control.Lens
 
@@ -101,6 +102,8 @@ class AsTodoItems f where
 togglesF :: (MonadWidget t m, HasErrorMessage e, AsTodoItems f) => Field t m e f (Compose (Map Int) TodoItem)
 togglesF =
   let
+    ki Nothing i = Id (Just i) "-ts"
+    ki (Just k) i = Id (Just $ ki Nothing i) . ("-" <>) . Text.pack . show $ k
     addMe =
       divClass "form-group" $ do
         ti <- textInput def
@@ -109,4 +112,4 @@ togglesF =
     deleteMe =
       buttonClass "Remove" "btn"
   in
-    collectionF todoItems (\i -> Id (Just i) "-ts") todoItemF addMe deleteMe
+    collectionF todoItems ki todoItemF addMe deleteMe
