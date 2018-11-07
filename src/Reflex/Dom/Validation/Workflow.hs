@@ -41,7 +41,6 @@ makePrisms ''PageRequirement
 data WorkflowStep t m e f where
   WorkflowStep :: Field t m e f f' -> WorkflowStep t m e f
 
--- something about how to add the buttons to the workflow
 data WorkflowWidgetConfig t m f =
   WorkflowWidgetConfig {
     _wwcBackRequirement :: PageRequirement
@@ -55,17 +54,17 @@ workflowWidget :: MonadWidget t m
                => WorkflowWidgetConfig t m f
                -> [WorkflowStep t m e f]
                -> ValidationWidget t m e f
-workflowWidget wwc [] i dv des =
+workflowWidget _ [] _ _ _ =
   pure never
 workflowWidget wwc steps i dv des =
   let
     l = length steps
-    w index =
+    w wix =
       let
-        step = steps !! index
+        step = steps !! wix
       in case step of
         WorkflowStep f -> Workflow $ do
-          (eBack, eNext, eChange) <- (wwc ^. wwcTemplate) (index == 0) (index == (l - 1)) $
+          (eBack, eNext, eChange) <- (wwc ^. wwcTemplate) (wix == 0) (wix == (l - 1)) $
             fieldWidget f i dv des
 
           iv' <- sample . current $ dv
@@ -91,7 +90,7 @@ workflowWidget wwc steps i dv des =
               _ -> eNext
 
             eChange' = leftmost [eBackChange, eNextChange, eChange]
-            eW = leftmost [w (index - 1) <$ eBackW, w (index + 1) <$ eNextW]
+            eW = leftmost [w (wix - 1) <$ eBackW, w (wix + 1) <$ eNextW]
 
           pure (eChange', eW)
   in do
