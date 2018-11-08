@@ -10,10 +10,10 @@ Portability : non-portable
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Reflex.Dom.Validation.Workflow (
-    PageRequirement(..)
-  , _NoRequirement
-  , _SaveFirst
-  , _ValidateFirst
+    StepRequirement(..)
+  , _BlankStep
+  , _SaveStep
+  , _ValidateStep
   , WorkflowStep(..)
   , WorkflowWidgetConfig(..)
   , wwcBackRequirement
@@ -35,21 +35,21 @@ import Data.Validation (toEither)
 
 import Reflex.Dom.Validation
 
-data PageRequirement =
-    NoRequirement
-  | SaveFirst
-  | ValidateFirst
+data StepRequirement =
+    BlankStep
+  | SaveStep
+  | ValidateStep
   deriving (Eq, Ord, Show, Read)
 
-makePrisms ''PageRequirement
+makePrisms ''StepRequirement
 
 data WorkflowStep t m e f where
   WorkflowStep :: Field t m e f f' -> WorkflowStep t m e f
 
 data WorkflowWidgetConfig t m f =
   WorkflowWidgetConfig {
-    _wwcBackRequirement :: PageRequirement
-  , _wwcNextRequirement :: PageRequirement
+    _wwcBackRequirement :: StepRequirement
+  , _wwcNextRequirement :: StepRequirement
   , _wwcTemplate :: Bool -> Bool -> m (Event t (Endo (f Maybe))) -> m (Event t (), Event t (), Event t (Endo (f Maybe)))
   }
 
@@ -79,15 +79,18 @@ workflowWidget steps wwc i dv des =
             eBack = if isFirst then never else eBack'
             eNext = if isLast then never else eNext'
 
-          -- TODO bring updated dv changes in here?
-          dv' <- foldDyn ($) iv $ fmap appEndo eChange
+          dv' <- foldDyn ($) iv  . mergeWith (.) $ [
+              fmap appEndo eChange
+              -- TODO double check this
+            , flip const <$> updated dv
+            ]
 
           let
             eBackChange = case wwc ^. wwcBackRequirement of
-              NoRequirement -> mempty <$ eBack
+              BlankStep -> Endo (const iv) <$ eBack
               _ -> never
             eNextChange = case wwc ^. wwcNextRequirement of
-              NoRequirement -> mempty <$ eNext
+              BlankStep -> Endo (const iv) <$ eNext
               _ -> never
 
             checkValidation e =
@@ -97,10 +100,10 @@ workflowWidget steps wwc i dv des =
                 (eF, flip (set fl) <$> current dv' <@> (nmap (Just . runIdentity) <$> eS))
 
             (eBackE, eBackW) = case wwc ^. wwcBackRequirement of
-              ValidateFirst -> checkValidation eBack
+              ValidateStep -> checkValidation eBack
               _ -> (never, current dv' <@ eBack)
             (eNextE, eNextW) = case wwc ^. wwcNextRequirement of
-              ValidateFirst -> checkValidation eNext
+              ValidateStep -> checkValidation eNext
               _ -> (never, current dv' <@ eNext)
             eFailure = eBackE <> eNextE
 

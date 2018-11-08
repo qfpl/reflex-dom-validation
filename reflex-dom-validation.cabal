@@ -19,6 +19,7 @@ library
                      , Reflex.Dom.Validation.Bootstrap.Errors
                      , Reflex.Dom.Validation.Bootstrap.Text
                      , Reflex.Dom.Validation.Bootstrap.Radio
+                     , Reflex.Dom.Validation.Bootstrap.Workflow
                      , Reflex.Dom.Validation.Workflow
                      , Bootstrap
                      , Demo

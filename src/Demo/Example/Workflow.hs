@@ -32,6 +32,7 @@ import Bootstrap
 import Reflex.Dom.Validation
 import Reflex.Dom.Validation.Workflow
 import Reflex.Dom.Validation.Bootstrap.Text
+import Reflex.Dom.Validation.Bootstrap.Workflow
 
 data Foo f =
   Foo {
@@ -134,15 +135,8 @@ fooW :: (MonadWidget t m, HasErrorMessage e, HasFooNotDigits e, HasFooNotLower e
       => ValidationWidget t m e Foo
 fooW =
   workflowWidget
-    [WorkflowStep fooAF, WorkflowStep fooBF, WorkflowStep fooCF] $
-    WorkflowWidgetConfig SaveFirst ValidateFirst $ \pageFirst pageLast w ->
-      divClass "container" $ do
-        eChange <- divClass "row" . divClass "col" $ w
-        (eBack, eNext) <- divClass "row" $ do
-          eBack <- divClass "col" . buttonClass "Back" . ("btn" <>) $ bool "" " disabled" pageFirst
-          eNext <- divClass "col" . buttonClass "Next" . ("btn" <>) $ bool "" " disabled" pageLast
-          pure (eBack, eNext)
-        pure (eBack, eNext, eChange)
+    [WorkflowStep fooAF, WorkflowStep fooBF, WorkflowStep fooCF]
+    workflowWidgetConfig
 
 fooF :: forall t m e f. (MonadWidget t m, HasErrorMessage e, HasFooNotDigits e, HasFooNotLower e, HasFooNotUpper e, AsFoo f)
       => Field t m e f Foo
