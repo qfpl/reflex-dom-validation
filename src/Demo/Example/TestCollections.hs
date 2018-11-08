@@ -38,14 +38,19 @@ import Bootstrap
 
 import Demo.Example.CompletedWithReason
 import Demo.Example.TodoItem
+import Demo.Example.Workflow
 
 data TestCollections f =
   TestCollections {
     _tcCompletedWithReason :: CompletedWithReason f
   , _tcTodoItems :: Map Int (TodoItem f)
+  , _tcFoo :: Foo f
   }
 
 makeLenses ''TestCollections
+
+instance NFunctor TestCollections where
+  nmap g (TestCollections cr ti f) = TestCollections (nmap g cr) (fmap (nmap g) ti) (nmap g f)
 
 instance AsCompletedWithReason TestCollections where
   completedWithReason = tcCompletedWithReason
@@ -53,12 +58,18 @@ instance AsCompletedWithReason TestCollections where
 instance AsTodoItems TestCollections where
   todoItems = tcTodoItems . _Unwrapped
 
+instance AsFoo TestCollections where
+  foo = tcFoo
+
 testCollectionsV :: forall t m e.
                  ( MonadWidget t m
                  , HasErrorMessage e
                  , HasNotSpecified e
                  , HasReasonRequiredForIncomplete e
                  , HasCollectionTooSmall e
+                 , HasFooNotDigits e
+                 , HasFooNotLower e
+                 , HasFooNotUpper e
                  )
                  => Proxy t
                  -> Proxy m
@@ -69,17 +80,26 @@ testCollectionsV _ _ i tc =
   in
     TestCollections <$>
       fieldValidation (completedWithReasonF @t @m) i tc <*>
-      (fieldValidation tf i tc) `bindValidation`
+      ((fieldValidation tf i tc) `bindValidation`
         (\(Compose xs) -> if length xs < 2
                 then (Failure . pure . WithId (fieldId tf i) $ _CollectionTooSmall # ())
-                else Success xs)
+                else Success xs)) <*>
+     fieldValidation (fooF @t @m) i tc
 
-testCollectionsW :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, HasReasonRequiredForIncomplete e)
+testCollectionsW :: ( MonadWidget t m
+                    , HasErrorMessage e
+                    , HasNotSpecified e
+                    , HasReasonRequiredForIncomplete e
+                    , HasFooNotDigits e
+                    , HasFooNotLower e
+                    , HasFooNotUpper e
+                    )
                  => ValidationWidget t m e TestCollections
 testCollectionsW i dv de =
-  (<>) <$>
+  (\x y z -> x <> y <> z) <$>
     fieldWidget completedWithReasonF i dv de <*>
-    fieldWidget togglesF i dv de
+    fieldWidget togglesF i dv de <*>
+    fieldWidget fooF i dv de
 
 class AsTestCollections f where
   testCollections :: Lens' (f g) (TestCollections g)
@@ -87,8 +107,17 @@ class AsTestCollections f where
 instance AsTestCollections TestCollections where
   testCollections = id
 
-testCollectionsF :: forall t m e f. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, HasReasonRequiredForIncomplete e, HasCollectionTooSmall e, AsTestCollections f)
-                     => Field t m e f TestCollections
+testCollectionsF :: forall t m e f.
+                    ( MonadWidget t m
+                    , HasErrorMessage e
+                    , HasNotSpecified e
+                    , HasReasonRequiredForIncomplete e
+                    , HasCollectionTooSmall e
+                    , HasFooNotDigits e
+                    , HasFooNotLower e
+                    , HasFooNotUpper e
+                    , AsTestCollections f)
+                 => Field t m e f TestCollections
 testCollectionsF =
   Field testCollections (\i -> Id (Just i) "-tc") (testCollectionsV (Proxy :: Proxy t) (Proxy :: Proxy m)) testCollectionsW
 

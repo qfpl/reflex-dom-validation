@@ -87,7 +87,7 @@ collectionW ki (Field l fi _ fw) addMe deleteMe i dv des =
     errorsForId i des
     pure eRes
 
-collectionF :: forall t m e f f' k. (MonadWidget t m, HasErrorMessage e, Num k, Enum k, Ord k)
+collectionF :: forall t m e f f' k. (MonadWidget t m, NFunctor f', HasErrorMessage e, Num k, Enum k, Ord k)
       => (forall g. Functor g => Lens' (f g) (Compose (Map k) f' g))
       -> (Maybe k -> Id -> Id)
       -> Field t m e f' f'

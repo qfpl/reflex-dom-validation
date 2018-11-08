@@ -53,6 +53,12 @@ import qualified Data.Map as Map
 
 import Bootstrap
 
+class NFunctor f where
+  nmap :: (forall x. g x -> h x) -> f g -> f h
+
+instance (Functor k, NFunctor f) => NFunctor (Compose k f) where
+  nmap f = Compose . fmap (nmap f) . getCompose
+
 data Id = Id {
     _idParent :: Maybe Id
   , _idTag :: Text
@@ -88,6 +94,9 @@ makeWrapped ''Wrap
 instance ToJSON a => ToJSON (Wrap a Maybe) where
 instance FromJSON a => FromJSON (Wrap a Maybe) where
 
+instance NFunctor (Wrap a) where
+  nmap f (Wrap g) = Wrap (f g)
+
 type ValidationFn e f f' =
   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
 
@@ -95,7 +104,8 @@ type ValidationWidget t m e f =
   Id -> Dynamic t (f Maybe) -> Dynamic t [WithId e] -> m (Event t (Endo (f Maybe)))
 
 data Field t m e f f' where
-  Field :: (forall g. Functor g => Lens' (f g) (f' g))
+  Field :: NFunctor f'
+        => (forall g. Functor g => Lens' (f g) (f' g))
         -> (Id -> Id)
         -> ValidationFn e f' f'
         -> ValidationWidget t m e f'

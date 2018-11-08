@@ -40,6 +40,9 @@ data TodoItem f =
 
 makeLenses ''TodoItem
 
+instance NFunctor TodoItem where
+  nmap f (TodoItem c i) = TodoItem (nmap f c) (nmap f i)
+
 toggleV :: ValidationFn e (Wrap Bool) (Wrap Bool)
 toggleV i mv =
   Success . Wrap . Identity . fromMaybe False . unWrap $ mv

@@ -50,6 +50,9 @@ deriving instance (Read (f Bool), Read (f (Maybe Text))) => Read (CompletedWithR
 
 makeLenses ''CompletedWithReason
 
+instance NFunctor CompletedWithReason where
+  nmap f (CompletedWithReason c r) = CompletedWithReason (nmap f c) (nmap f r)
+
 instance AsCompleted CompletedWithReason where
   completed = cwrCompleted
 

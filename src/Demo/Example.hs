@@ -21,6 +21,7 @@ import Bootstrap
 
 import Demo.Example.CompletedWithReason
 import Demo.Example.TestCollections
+import Demo.Example.Workflow
 import Demo.Example.Error
 
 -- TODO do we always want changes to be saved?
@@ -28,7 +29,7 @@ import Demo.Example.Error
 -- - we might want to tie that to buttons in workflows etc..., and so making that configurable might be a thing
 
 go :: forall t m. MonadWidget t m => m (Event t (TestCollections Identity))
-go = wrapUp (testCollectionsF :: Field t m MyError TestCollections TestCollections) (TestCollections (CompletedWithReason (Wrap Nothing) (Wrap Nothing)) mempty) $ \d -> do
+go = wrapUp (testCollectionsF :: Field t m MyError TestCollections TestCollections) (TestCollections (CompletedWithReason (Wrap Nothing) (Wrap Nothing)) mempty (Foo (Wrap Nothing) (Wrap Nothing) (Wrap Nothing))) $ \d -> do
 
   -- the version with a validation button
   eValidate <- buttonClass "Validate" "btn"

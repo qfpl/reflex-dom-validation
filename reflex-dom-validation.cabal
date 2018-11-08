@@ -28,6 +28,7 @@ library
                      , Demo.Example.CompletedWithReason
                      , Demo.Example.TodoItem
                      , Demo.Example.TestCollections
+                     , Demo.Example.Workflow
                      , Demo.Example.Error
   build-depends:       base >=4.9 && <4.13
                      , mtl
