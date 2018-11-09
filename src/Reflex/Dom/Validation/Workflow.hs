@@ -6,6 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -14,19 +15,29 @@ module Reflex.Dom.Validation.Workflow (
   , _BlankStep
   , _SaveStep
   , _ValidateStep
+  , StepNavigation(..)
+  , _ButtonNavigation
+  , _ButtonNavigationWithStepLabels
+  , _DropdownNavigation
+  , _ButtonAndDropdownNavigation
   , WorkflowStep(..)
   , WorkflowWidgetConfig(..)
   , wwcBackRequirement
   , wwcNextRequirement
+  , wwcNavigation
   , wwcTemplate
   , workflowWidget
   ) where
 
-import Control.Monad (void)
 import Data.Functor.Identity (Identity(..))
+import Data.List (nub)
 import Data.Monoid (Endo(..))
 
 import Control.Lens
+import Control.Error
+
+import Data.Text (Text)
+import qualified Data.Text as Text
 
 import qualified Data.List.NonEmpty as NE
 
@@ -44,19 +55,32 @@ data StepRequirement =
 makePrisms ''StepRequirement
 
 data WorkflowStep t m e f where
-  WorkflowStep :: Field t m e f f' -> WorkflowStep t m e f
+  WorkflowStep :: Text -> Field t m e f f' -> WorkflowStep t m e f
+
+stepLabel :: WorkflowStep t m e f -> Text
+stepLabel (WorkflowStep l _) = l
+
+data StepNavigation =
+    ButtonNavigation
+  | ButtonNavigationWithStepLabels
+  | DropdownNavigation
+  | ButtonAndDropdownNavigation
+  deriving (Eq, Ord, Show, Read)
+
+makePrisms ''StepNavigation
 
 data WorkflowWidgetConfig t m f =
   WorkflowWidgetConfig {
     _wwcBackRequirement :: StepRequirement
   , _wwcNextRequirement :: StepRequirement
-  , _wwcTemplate :: Bool -> Bool -> m (Event t (Endo (f Maybe))) -> m (Event t (), Event t (), Event t (Endo (f Maybe)))
+  , _wwcNavigation :: StepNavigation
+  , _wwcTemplate :: StepNavigation -> Int -> Int -> [Text] -> m (Event t (Endo (f Maybe))) -> m (Event t Int, Event t (Endo (f Maybe)))
   }
 
 makeLenses ''WorkflowWidgetConfig
 
 workflowWidget :: forall t m e f.
-                  (MonadWidget t m, NFunctor f)
+                  (MonadWidget t m, Eq e, NFunctor f)
                => [WorkflowStep t m e f]
                -> WorkflowWidgetConfig t m f
                -> ValidationWidget t m e f
@@ -64,20 +88,20 @@ workflowWidget [] _ _ _ _ =
   pure never
 workflowWidget steps wwc i dv des =
   let
+    labels = fmap stepLabel steps
     l = length steps
     w wix iv =
       let
-        step = steps !! wix
-      in case step of
-        WorkflowStep f@(Field fl _ _ _) -> Workflow $ mdo
+      in case atMay steps wix of
+        Nothing -> Workflow $ do
+          text "Indexing error"
+          pure (never, never)
+        Just (WorkflowStep _ f@(Field fl _ _ _)) -> Workflow $ mdo
+          (eIx, eChange) <- (wwc ^. wwcTemplate) (wwc ^. wwcNavigation) wix l labels $
+            fieldWidget f i dv $ (\x y -> nub $ x ++ y) <$> des <*> dFailure
           let
-            isFirst = wix == 0
-            isLast = wix == (l - 1)
-          (eBack', eNext', eChange) <- (wwc ^. wwcTemplate) isFirst isLast $
-            fieldWidget f i dv $ (++) <$> des <*> dFailure
-          let
-            eBack = if isFirst then never else eBack'
-            eNext = if isLast then never else eNext'
+            eBack = ffilter (< wix) eIx
+            eNext = ffilter (> wix) eIx
 
           dv' <- foldDyn ($) iv  . mergeWith (.) $ [
               fmap appEndo eChange
@@ -92,23 +116,23 @@ workflowWidget steps wwc i dv des =
             eNextChange = case wwc ^. wwcNextRequirement of
               BlankStep -> Endo (const iv) <$ eNext
               _ -> never
+            eChange' = leftmost [eBackChange, eNextChange, eChange]
 
             checkValidation e =
               let
-                (eF, eS) = fanEither $ toEither . fieldValidation f i <$> current dv' <@ e
+                (eF, eIS) = fanEither $ (\v ix -> fmap (\s -> (ix, s)) . toEither . fieldValidation f i $ v) <$> current dv' <@> e
               in
-                (eF, flip (set fl) <$> current dv' <@> (nmap (Just . runIdentity) <$> eS))
+                (eF, (\v (i, s) -> (i, set fl (nmap (Just . runIdentity) s) v)) <$> current dv' <@> eIS)
 
             (eBackE, eBackW) = case wwc ^. wwcBackRequirement of
               ValidateStep -> checkValidation eBack
-              _ -> (never, current dv' <@ eBack)
+              _ -> (never, (\x y -> (y, x)) <$> current dv' <@> eBack)
             (eNextE, eNextW) = case wwc ^. wwcNextRequirement of
               ValidateStep -> checkValidation eNext
-              _ -> (never, current dv' <@ eNext)
+              _ -> (never, (\x y -> (y, x)) <$> current dv' <@> eNext)
             eFailure = eBackE <> eNextE
 
-            eChange' = leftmost [eBackChange, eNextChange, eChange]
-            eW = leftmost [w (wix - 1) <$> eBackW, w (wix + 1) <$> eNextW]
+            eW = uncurry w <$> leftmost [eBackW, eNextW]
 
           dFailure <- holdDyn mempty . leftmost $ [NE.toList <$> eFailure, [] <$ eW]
 

@@ -131,14 +131,14 @@ fooV _ _ i cr =
     fieldValidation (fooBF @t @m) i cr <*>
     fieldValidation (fooCF @t @m) i cr
 
-fooW :: (MonadWidget t m, HasErrorMessage e, HasFooNotDigits e, HasFooNotLower e, HasFooNotUpper e)
+fooW :: (MonadWidget t m, Eq e, HasErrorMessage e, HasFooNotDigits e, HasFooNotLower e, HasFooNotUpper e)
       => ValidationWidget t m e Foo
 fooW =
   workflowWidget
-    [WorkflowStep fooAF, WorkflowStep fooBF, WorkflowStep fooCF]
+    [WorkflowStep "WA" fooAF, WorkflowStep "WB" fooBF, WorkflowStep "WC" fooCF]
     workflowWidgetConfig
 
-fooF :: forall t m e f. (MonadWidget t m, HasErrorMessage e, HasFooNotDigits e, HasFooNotLower e, HasFooNotUpper e, AsFoo f)
+fooF :: forall t m e f. (MonadWidget t m, Eq e, HasErrorMessage e, HasFooNotDigits e, HasFooNotLower e, HasFooNotUpper e, AsFoo f)
       => Field t m e f Foo
 fooF =
   Field foo (\i -> Id (Just i) "-foo") (fooV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooW

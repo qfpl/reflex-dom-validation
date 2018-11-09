@@ -8,6 +8,8 @@ Portability : non-portable
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Bootstrap (
     debugApp
@@ -20,17 +22,23 @@ module Bootstrap (
   , buttonAttr
   , buttonDynClass
   , buttonClass
+  , bootstrapDropdown
   ) where
 
-import Reflex.Dom.Core
-
+import Control.Monad.Fix (MonadFix)
+import Data.Bool (bool)
 import Data.Foldable (traverse_)
+import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
+
+import Control.Lens
 
 import Data.Text (Text)
 
 import Data.Map (Map)
 import qualified Data.Map as Map
+
+import Reflex.Dom.Core
 
 import Language.Javascript.JSaddle.WebSockets (debugOr)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings) 
@@ -65,7 +73,7 @@ tailSection :: Widget x ()
 tailSection =
   let
     script src =
-      elAttr "script" ("src" =: src) blank
+      elAttr "script" ("src" =: src <> "defer" =: "") blank
   in
     traverse_ script bootstrapJsFiles
 
@@ -113,3 +121,43 @@ buttonDynClass label =
 buttonClass :: MonadWidget t m => Text -> Text -> m (Event t ())
 buttonClass label =
   dynButtonClass (pure label)
+
+-- <div class="dropdown">
+--   <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+--     Dropdown button
+--   </button>
+--   <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+--     <a class="dropdown-item" href="#">Action</a>
+--     <a class="dropdown-item" href="#">Another action</a>
+--     <a class="dropdown-item" href="#">Something else here</a>
+--   </div>
+-- </div>
+
+bootstrapDropdown :: forall k t m. (DomBuilder t m, MonadFix m, MonadHold t m, PostBuild t m, Ord k)
+                  => k
+                  -> Dynamic t (Map k Text)
+                  -- -> DropdownConfig t k
+                  -> m (Dropdown t k)
+bootstrapDropdown k0 options = -- (DropdownConfig setK attrs) =
+  divClass "dropdown" $ mdo
+    (elShow, _) <- elAttr' "button" (
+      "class" =: "btn dropdown-toggle" <>
+      "type" =: "button" <>
+      "data-toggle" =: "dropdown" <>
+      "aria-haspopup" =: "true" <>
+      "aria-expanded" =: "false") $ dynText . fmap (fromMaybe "") $ flip Map.lookup <$> options <*> dButton
+    let eShow = domEvent Click elShow
+    dChangeShow <- toggle False eShow
+    dShow <- holdDyn False . leftmost $ [
+        updated dChangeShow
+      , False <$ eButton
+      ]
+    let
+      dClass = ("class" =:) . ("dropdown-menu" <>) . bool "" " show" <$> dShow
+    deButtons <- elDynAttr "div" dClass $ do
+        listWithKey options $ \k v -> do
+          (el, _) <- elAttr' "a" ("class" =: "dropdown-item" <> "href" =: "#") $ dynText v
+          pure $ k <$ domEvent Click el
+    let eButton = fmap (head . Map.keys) . switchDyn . fmap mergeMap $ deButtons
+    dButton <- holdDyn k0 eButton
+    pure $ Dropdown dButton eButton

@@ -31,7 +31,7 @@ errorsForId :: (MonadWidget t m, HasErrorMessage e)
             => Id -> Dynamic t [WithId e] -> m ()
 errorsForId i des =
   let
-    dErrors = fmap (view wiValue) . ffilter ((== i) . view wiId) <$> des
+    dErrors = fmap (errorMessage . view wiValue) . ffilter ((== i) . view wiId) <$> des
   in
-    divClass "invalid-feedback" . void . simpleList dErrors $
-      dynText . fmap errorMessage
+    void . simpleList dErrors $
+      divClass "invalid-feedback" . dynText

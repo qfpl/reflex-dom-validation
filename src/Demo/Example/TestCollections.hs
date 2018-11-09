@@ -63,6 +63,7 @@ instance AsFoo TestCollections where
 
 testCollectionsV :: forall t m e.
                  ( MonadWidget t m
+                 , Eq e
                  , HasErrorMessage e
                  , HasNotSpecified e
                  , HasReasonRequiredForIncomplete e
@@ -87,6 +88,7 @@ testCollectionsV _ _ i tc =
      fieldValidation (fooF @t @m) i tc
 
 testCollectionsW :: ( MonadWidget t m
+                    , Eq e
                     , HasErrorMessage e
                     , HasNotSpecified e
                     , HasReasonRequiredForIncomplete e
@@ -109,6 +111,7 @@ instance AsTestCollections TestCollections where
 
 testCollectionsF :: forall t m e f.
                     ( MonadWidget t m
+                    , Eq e
                     , HasErrorMessage e
                     , HasNotSpecified e
                     , HasReasonRequiredForIncomplete e
