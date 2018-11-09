@@ -3,6 +3,8 @@
 
 - something for dealing with dropdowns and groups of checkboxes
 - something for dealing with HTML5 validation inputs (see master for hints)
+  - working out how to get their validation into the pipeline will be interesting
+    - maybe a dynamic for validation errors in the output of validation widget?
 
 
 

@@ -100,8 +100,22 @@ instance NFunctor (Wrap a) where
 type ValidationFn e f f' =
   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
 
+data ValidationWidgetOutput t e f =
+  ValidationWidgetOutput {
+    _vwoFailures :: Dynamic t (NonEmpty (WithId e))
+  , _vwoSuccesses :: Event t (Endo (f Maybe))
+  }
+
+makeLenses ''ValidationWidgetOutput
+
+instance Reflex t => Semigroup (ValidationWidgetOutput t e f) where
+  ValidationWidgetOutput f1 s1 <> ValidationWidgetOutput f2 s2 =
+    ValidationWidgetOutput (f1 <> f2) (s1 <> s2)
+
+-- TODO change ValidationWidget return type
+
 type ValidationWidget t m e f =
-  Id -> Dynamic t (f Maybe) -> Dynamic t [WithId e] -> m (Event t (Endo (f Maybe)))
+  Id -> Dynamic t (f Maybe) -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f)
 
 data Field t m e f f' where
   Field :: NFunctor f'
@@ -122,8 +136,8 @@ fieldWidget :: MonadWidget t m => Field t m e f f' -> ValidationWidget t m e f
 fieldWidget f@(Field l fi _ w) i dv de = do
   let
     i' = fi i
-  e' <- w i' (view l <$> dv) $ filter (matchOrDescendant i' . view wiId) <$> de
-  pure $ Endo . over l . appEndo <$> e'
+  ValidationWidgetOutput d e' <- w i' (view l <$> dv) $ filter (matchOrDescendant i' . view wiId) <$> de
+  pure . ValidationWidgetOutput d $ Endo . over l . appEndo <$> e'
 
 unwrapV :: Wrap a Identity -> a
 unwrapV = runIdentity . unWrap
@@ -145,7 +159,7 @@ wrapUp f ini v = mdo
   let i = Id Nothing "top"
 
   dcr <- foldDyn ($) ini $ fmap appEndo eFn
-  eFn <- fieldWidget f i dcr des
+  ValidationWidgetOutput de eFn <- fieldWidget f i dcr des
   eV <- v dcr
   let (eFailure, eSuccess) = fanEither $ toEither . fieldValidation f i <$> eV
   -- TODO printing these failures would be interesting
