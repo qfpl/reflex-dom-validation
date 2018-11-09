@@ -1,6 +1,11 @@
 
 
 
+- something for dealing with dropdowns and groups of checkboxes
+- something for dealing with HTML5 validation inputs (see master for hints)
+
+
+
 - could do something like the workflow list for bootstrap rows
 - could add a config type with a default value for the workflow list steps
   - the ctx, pre and post would have defaults

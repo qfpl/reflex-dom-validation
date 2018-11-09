@@ -15,12 +15,13 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Reflex.Dom.Validation
                      , Reflex.Dom.Validation.Collection
+                     , Reflex.Dom.Validation.Workflow
+                     , Reflex.Dom.Validation.Html5
                      , Reflex.Dom.Validation.Bootstrap
                      , Reflex.Dom.Validation.Bootstrap.Errors
                      , Reflex.Dom.Validation.Bootstrap.Text
                      , Reflex.Dom.Validation.Bootstrap.Radio
                      , Reflex.Dom.Validation.Bootstrap.Workflow
-                     , Reflex.Dom.Validation.Workflow
                      , Bootstrap
                      , Demo
                      , Demo.Example

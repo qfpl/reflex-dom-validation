@@ -135,7 +135,10 @@ fooW :: (MonadWidget t m, Eq e, HasErrorMessage e, HasFooNotDigits e, HasFooNotL
       => ValidationWidget t m e Foo
 fooW =
   workflowWidget
-    [WorkflowStep "WA" fooAF, WorkflowStep "WB" fooBF, WorkflowStep "WC" fooCF]
+    [ WorkflowStep "Workflow - Page 1" fooAF
+    , WorkflowStep "Workflow - Page 2" fooBF
+    , WorkflowStep "Workflow - Page 3" fooCF
+    ]
     workflowWidgetConfig
 
 fooF :: forall t m e f. (MonadWidget t m, Eq e, HasErrorMessage e, HasFooNotDigits e, HasFooNotLower e, HasFooNotUpper e, AsFoo f)
