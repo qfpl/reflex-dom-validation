@@ -14,6 +14,7 @@ module Demo.Example.Error (
 import Control.Lens.TH
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Html5
 
 import Demo.Example.CompletedWithReason
 import Demo.Example.TestCollections
@@ -26,6 +27,7 @@ data MyError =
   | MEFooNotDigits
   | MEFooNotLower
   | MEFooNotUpper
+  | MEValidity ValidityError
   deriving (Eq, Ord, Show, Read)
 
 makePrisms ''MyError
@@ -37,6 +39,7 @@ instance HasErrorMessage MyError where
   errorMessage MEFooNotDigits = "Not digits"
   errorMessage MEFooNotLower = "Not lowercase"
   errorMessage MEFooNotUpper = "Not uppercase"
+  errorMessage (MEValidity ve) = errorMessage ve
 
 instance HasNotSpecified MyError where
   _NotSpecified = _MENotSpecified
@@ -55,3 +58,6 @@ instance HasFooNotLower MyError where
 
 instance HasFooNotUpper MyError where
   _FooNotUpper = _MEFooNotUpper
+
+instance HasValidityError MyError where
+  _ValidityError = _MEValidity

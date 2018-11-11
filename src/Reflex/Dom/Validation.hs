@@ -27,6 +27,7 @@ module Reflex.Dom.Validation where
 import Control.Monad (void, join)
 import Data.Bool (bool)
 import Data.Functor.Compose (Compose(..))
+import Data.List (nub)
 import Data.Semigroup (Semigroup(..))
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Endo(..))
@@ -102,7 +103,7 @@ type ValidationFn e f f' =
 
 data ValidationWidgetOutput t e f =
   ValidationWidgetOutput {
-    _vwoFailures :: Dynamic t (NonEmpty (WithId e))
+    _vwoFailures :: Dynamic t [WithId e]
   , _vwoSuccesses :: Event t (Endo (f Maybe))
   }
 
@@ -111,6 +112,10 @@ makeLenses ''ValidationWidgetOutput
 instance Reflex t => Semigroup (ValidationWidgetOutput t e f) where
   ValidationWidgetOutput f1 s1 <> ValidationWidgetOutput f2 s2 =
     ValidationWidgetOutput (f1 <> f2) (s1 <> s2)
+
+instance Reflex t => Monoid (ValidationWidgetOutput t e f) where
+  mempty = ValidationWidgetOutput mempty mempty
+  mappend = (<>)
 
 -- TODO change ValidationWidget return type
 
@@ -150,7 +155,7 @@ class HasNotSpecified e where
   _NotSpecified :: Prism' e ()
 
 -- this puts a potential validation button at the bottom, which might not be what we want in all cases
-wrapUp :: MonadWidget t m
+wrapUp :: (MonadWidget t m, Eq e)
        => Field t m e f f
        -> f Maybe
        -> (Dynamic t (f Maybe) -> m (Event t (f Maybe)))
@@ -159,11 +164,15 @@ wrapUp f ini v = mdo
   let i = Id Nothing "top"
 
   dcr <- foldDyn ($) ini $ fmap appEndo eFn
-  ValidationWidgetOutput de eFn <- fieldWidget f i dcr des
+  ValidationWidgetOutput de eFn <- fieldWidget f i dcr $
+    (\x y -> nub $ x ++ y) <$> des <*> de
   eV <- v dcr
   let (eFailure, eSuccess) = fanEither $ toEither . fieldValidation f i <$> eV
   -- TODO printing these failures would be interesting
-  des :: Dynamic t [WithId e] <- holdDyn [] . leftmost $ [NonEmpty.toList <$> eFailure, [] <$ eSuccess]
+  des :: Dynamic t [WithId e] <- holdDyn [] . leftmost $
+    [ NonEmpty.toList <$> eFailure
+    , [] <$ eSuccess
+    ]
 
   pure eSuccess
 

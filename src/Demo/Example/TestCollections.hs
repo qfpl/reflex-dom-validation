@@ -33,6 +33,7 @@ import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
 import Reflex.Dom.Validation.Collection
+import Reflex.Dom.Validation.Html5
 
 import Bootstrap
 
@@ -71,6 +72,7 @@ testCollectionsV :: forall t m e.
                  , HasFooNotDigits e
                  , HasFooNotLower e
                  , HasFooNotUpper e
+                 , HasValidityError e
                  )
                  => Proxy t
                  -> Proxy m
@@ -95,6 +97,7 @@ testCollectionsW :: ( MonadWidget t m
                     , HasFooNotDigits e
                     , HasFooNotLower e
                     , HasFooNotUpper e
+                    , HasValidityError e
                     )
                  => ValidationWidget t m e TestCollections
 testCollectionsW i dv de =
@@ -119,6 +122,7 @@ testCollectionsF :: forall t m e f.
                     , HasFooNotDigits e
                     , HasFooNotLower e
                     , HasFooNotUpper e
+                    , HasValidityError e
                     , AsTestCollections f)
                  => Field t m e f TestCollections
 testCollectionsF =

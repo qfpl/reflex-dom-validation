@@ -29,6 +29,7 @@ module Reflex.Dom.Validation.Workflow (
   , workflowWidget
   ) where
 
+import Control.Monad (join)
 import Data.Functor.Identity (Identity(..))
 import Data.List (nub)
 import Data.Monoid (Endo(..))
@@ -69,12 +70,17 @@ data StepNavigation =
 
 makePrisms ''StepNavigation
 
-data WorkflowWidgetConfig t m f =
+data WorkflowWidgetConfig t m e f =
   WorkflowWidgetConfig {
     _wwcBackRequirement :: StepRequirement
   , _wwcNextRequirement :: StepRequirement
   , _wwcNavigation :: StepNavigation
-  , _wwcTemplate :: StepNavigation -> Int -> Int -> [Text] -> m (Event t (Endo (f Maybe))) -> m (Event t Int, Event t (Endo (f Maybe)))
+  , _wwcTemplate :: StepNavigation
+                 -> Int
+                 -> Int
+                 -> [Text]
+                 -> m (ValidationWidgetOutput t e f)
+                 -> m (Event t Int, ValidationWidgetOutput t e f)
   }
 
 makeLenses ''WorkflowWidgetConfig
@@ -82,10 +88,10 @@ makeLenses ''WorkflowWidgetConfig
 workflowWidget :: forall t m e f.
                   (MonadWidget t m, Eq e, NFunctor f)
                => [WorkflowStep t m e f]
-               -> WorkflowWidgetConfig t m f
+               -> WorkflowWidgetConfig t m e f
                -> ValidationWidget t m e f
 workflowWidget [] _ _ _ _ =
-  pure never
+  pure mempty
 workflowWidget steps wwc i dv des =
   let
     labels = fmap stepLabel steps
@@ -95,10 +101,10 @@ workflowWidget steps wwc i dv des =
       in case atMay steps wix of
         Nothing -> Workflow $ do
           text "Indexing error"
-          pure (never, never)
+          pure (mempty, never)
         Just (WorkflowStep _ f@(Field fl _ _ _)) -> Workflow $ mdo
-          (eIx, eChange) <- (wwc ^. wwcTemplate) (wwc ^. wwcNavigation) wix l labels $
-            fieldWidget f i dv $ (\x y -> nub $ x ++ y) <$> des <*> dFailure
+          (eIx, ValidationWidgetOutput dFailure eChange) <- (wwc ^. wwcTemplate) (wwc ^. wwcNavigation) wix l labels $
+            fieldWidget f i dv des
           let
             eBack = ffilter (< wix) eIx
             eNext = ffilter (> wix) eIx
@@ -134,10 +140,17 @@ workflowWidget steps wwc i dv des =
 
             eW = uncurry w <$> leftmost [eBackW, eNextW]
 
-          dFailure <- holdDyn mempty . leftmost $ [NE.toList <$> eFailure, [] <$ eW]
+          iFailure <- sample . current $ dFailure
+          dFailure' <- holdDyn iFailure . leftmost $
+            [ mergeWith (<>) [updated dFailure, NE.toList <$> eFailure]
+            , [] <$ eW
+            ]
 
-          pure (eChange', eW)
+          pure (ValidationWidgetOutput dFailure' eChange', eW)
   in do
     iv <- sample . current $ dv
-    de <- workflow $ w 0 iv
-    pure $ switchDyn de
+    dvwo <- workflow $ w 0 iv
+    let
+      dd = _vwoFailures <$> dvwo
+      de = _vwoSuccesses <$> dvwo
+    pure $ ValidationWidgetOutput (join dd) (switchDyn de)

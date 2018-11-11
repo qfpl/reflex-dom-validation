@@ -78,4 +78,5 @@ radioWidget rwc i dv des = divClass "form-group" $ do
 
     pure $ bool Nothing (Just v) <$> ev'
 
-  pure $ Endo . const . Wrap <$> leftmost es
+  pure . ValidationWidgetOutput (pure mempty) $
+    Endo . const . Wrap <$> leftmost es

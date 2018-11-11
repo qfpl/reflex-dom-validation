@@ -59,7 +59,8 @@ toggleW i dv _ = do
     & attributes .~ pure ("id" =: idToText i)
   let ev' = cb ^. checkbox_change
 
-  pure $ Endo . const . Wrap . Just <$> ev'
+  pure . ValidationWidgetOutput (pure mempty) $
+    Endo . const . Wrap . Just <$> ev'
 
 completeF :: MonadWidget t m => Field t m e TodoItem (Wrap Bool)
 completeF = Field tiComplete (\i -> Id (Just i) "-c") toggleV toggleW
@@ -81,7 +82,8 @@ itemW i dv _ = do
     & textInputConfig_initialValue .~ iv
   let ev' = ti ^. textInput_input
 
-  pure $ Endo . const . Wrap . Just <$> ev'
+  pure . ValidationWidgetOutput (pure mempty) $
+    Endo . const . Wrap . Just <$> ev'
 
 itemF :: MonadWidget t m => Field t m e TodoItem (Wrap Text)
 itemF = Field tiItem (\i -> Id (Just i) "-i") itemV itemW
@@ -94,12 +96,12 @@ todoItemW :: (MonadWidget t m, HasErrorMessage e)
           => ValidationWidget t m e TodoItem
 todoItemW i dv des = do
 
-  eComplete <- fieldWidget completeF i dv des
-  eItem <- fieldWidget itemF i dv des
+  ValidationWidgetOutput dCompleteE eComplete <- fieldWidget completeF i dv des
+  ValidationWidgetOutput dItemE eItem <- fieldWidget itemF i dv des
 
   errorsForId i des
 
-  pure $ eComplete <> eItem
+  pure $ ValidationWidgetOutput (dCompleteE <> dItemE) (eComplete <> eItem)
 
 todoItemF :: forall t m e. (MonadWidget t m, HasErrorMessage e) => Field t m e TodoItem TodoItem
 todoItemF = Field id (\i -> Id (Just i) "-ti") (todoItemV (Proxy :: Proxy t) (Proxy :: Proxy m)) todoItemW

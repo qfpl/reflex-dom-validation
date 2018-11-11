@@ -79,4 +79,5 @@ textWidget twc i dv des = divClass "form-group" $ do
 
   errorsForId i des
 
-  pure $ Endo . const . Wrap . Just . (\t -> if Text.null t then Nothing else Just t) <$> ev'
+  pure . ValidationWidgetOutput (pure mempty) $
+    Endo . const . Wrap . Just . (\t -> if Text.null t then Nothing else Just t) <$> ev'

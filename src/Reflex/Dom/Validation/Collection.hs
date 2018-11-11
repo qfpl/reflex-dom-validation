@@ -13,6 +13,7 @@ module Reflex.Dom.Validation.Collection (
     collectionF
   ) where
 
+import Control.Monad (join)
 import Data.Bool (bool)
 import Data.Semigroup (Semigroup(..))
 import Data.Monoid (Endo(..))
@@ -42,22 +43,30 @@ collectionV ki (Field l fi vfn _) i =
  Map.traverseWithKey (\k v -> vfn (fi (ki (Just k) i)) (view l v)) .
  getCompose
 
-gatherCollectionEvents :: forall t f k. (Reflex t, Num k, Enum k, Ord k)
+gatherCollectionEvents :: forall t e f k. (Reflex t, Num k, Enum k, Ord k)
                        => Event t (f Maybe)
-                       -> Dynamic t (Map k (Event t (Endo (f Maybe)), Event t ()))
-                       -> Event t (Endo (Compose (Map k) f Maybe))
+                       -> Dynamic t (Map k (ValidationWidgetOutput t e f, Event t ()))
+                       -> ValidationWidgetOutput t e (Compose (Map k) f)
 gatherCollectionEvents eAdd dme =
   let
     mapEndo :: k -> Endo (f Maybe) -> Endo (Compose (Map k) f Maybe)
     mapEndo k v = Endo $ Compose . Map.adjust (appEndo v) k . getCompose
+
+    dFailures :: Dynamic t [WithId e]
+    dFailures = fmap (join . Map.elems) . joinDynThroughMap . fmap (fmap (_vwoFailures . fst)) $ dme
+
     eChanges :: Event t (Endo (Compose (Map k) f Maybe))
-    eChanges = fmap (fold . Map.mapWithKey mapEndo) . switchDyn . fmap (mergeMap . fmap fst) $ dme
+    eChanges = fmap (fold . Map.mapWithKey mapEndo) . switchDyn . fmap (mergeMap . fmap (_vwoSuccesses . fst)) $ dme
+
     eDeletes :: Event t (Endo (Compose (Map k) f Maybe))
     eDeletes = fmap (\ks -> Endo $ Compose . (\m -> foldr Map.delete m . Map.keys $ ks) . getCompose) . switchDyn . fmap (mergeMap . fmap snd) $ dme
+
     eAdditions :: Event t (Endo (Compose (Map k) f Maybe))
     eAdditions = (\v -> Endo $ Compose . (\m -> Map.insert (maybe 0 (succ . fst . fst) . Map.maxViewWithKey $ m) v m) . getCompose) <$> eAdd
   in
-    eChanges <> eDeletes <> eAdditions
+    ValidationWidgetOutput
+      dFailures
+      (eChanges <> eDeletes <> eAdditions)
 
 -- TODO generalize the bootstrap specific bits of this away
 collectionW :: forall t m e f k. (MonadWidget t m, HasErrorMessage e, Num k, Enum k, Ord k)
@@ -70,22 +79,22 @@ collectionW ki (Field l fi _ fw) addMe deleteMe i dv des =
   let
     dClass = ("form-control " <>) <$> errorClass i des
   in do
-    eRes <- elDynClass "div" dClass $ do
+    vwo <- elDynClass "div" dClass $ do
       -- TODO add buttons to each row to allow them to move up and down
       eAdd <- addMe
 
-      dme <- listWithKey (getCompose <$> dv) $ \k dv' -> do
+      dm <- listWithKey (getCompose <$> dv) $ \k dv' -> do
         let i' = ki (Just k) i
         el "div" $ do
         -- divClass "form-group" $ do
-          eEl <- fw (fi i') (view l <$> dv') $ filter (matchOrDescendant i' . view wiId) <$> des
+          vwo' <- fw (fi i') (view l <$> dv') $ filter (matchOrDescendant i' . view wiId) <$> des
           eDel <- deleteMe
-          pure (eEl, eDel)
+          pure (vwo', eDel)
 
-      pure $ gatherCollectionEvents eAdd dme
+      pure $ gatherCollectionEvents eAdd dm
 
     errorsForId i des
-    pure eRes
+    pure vwo
 
 collectionF :: forall t m e f f' k. (MonadWidget t m, NFunctor f', HasErrorMessage e, Num k, Enum k, Ord k)
       => (forall g. Functor g => Lens' (f g) (Compose (Map k) f' g))

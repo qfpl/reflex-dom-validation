@@ -6,6 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Reflex.Dom.Validation.Html5 where
 
@@ -46,7 +47,9 @@ data ValidityError =
   | ValueMissing
   deriving (Eq, Ord, Show, Read)
 
-class AsValidityError e where
+makePrisms ''ValidityError
+
+class HasValidityError e where
   _ValidityError :: Prism' e ValidityError
 
 instance HasErrorMessage ValidityError where
@@ -61,7 +64,7 @@ instance HasErrorMessage ValidityError where
   errorMessage TypeMismatch = "Type mismatch"
   errorMessage ValueMissing = "Value missing"
 
-checkValid :: (MonadJSM m, AsValidityError e)
+checkValid :: (MonadJSM m, HasValidityError e)
            => ValidityState
            -> m (Validation (NonEmpty e) ())
 checkValid vs =
@@ -103,7 +106,7 @@ data ValidInput t e a =
   , viHasFocus :: Dynamic t Bool
   }
 
-valid :: (MonadWidget t m, AsValidityError e, HasErrorMessage e, Show a)
+valid :: (MonadWidget t m, HasValidityError e, HasErrorMessage e, Show a)
       => ValidInputConfig t e a
       -> m (ValidInput t e a)
 valid (ValidInputConfig vTo vFrom vType initial eSetValue dAttrs) = do
@@ -124,7 +127,7 @@ valid (ValidInputConfig vTo vFrom vType initial eSetValue dAttrs) = do
   input' <- performEvent $ check <$> leftmost [eUserChange, eValidate]
 
   d <- holdDyn (vFrom "") input'
-  display $ either (show . fmap errorMessage) show . toEither <$> d
+  -- display $ either (show . fmap errorMessage) show . toEither <$> d
 
   let initial' = maybe (Failure . pure $ _ValidityError # ValueMissing) Success initial
   updated' <- performEvent $ check <$> updated (_inputElement_value i)

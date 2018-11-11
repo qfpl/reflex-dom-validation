@@ -28,6 +28,7 @@ import Reflex.Dom.Core
 
 import Bootstrap
 
+import Reflex.Dom.Validation
 import Reflex.Dom.Validation.Workflow
 
 workflowTemplate :: MonadWidget t m
@@ -35,8 +36,8 @@ workflowTemplate :: MonadWidget t m
                  -> Int
                  -> Int
                  -> [Text]
-                 -> m (Event t (Endo (f Maybe)))
-                 -> m (Event t Int, Event t (Endo (f Maybe)))
+                 -> m (ValidationWidgetOutput t e f)
+                 -> m (Event t Int, ValidationWidgetOutput t e f)
 workflowTemplate sn wix l labels w =
   let
     isFirst = wix == 0
@@ -69,6 +70,6 @@ workflowTemplate sn wix l labels w =
       pure (eIx, eChange)
 
 workflowWidgetConfig :: MonadWidget t m
-                     => WorkflowWidgetConfig t m f
+                     => WorkflowWidgetConfig t m e f
 workflowWidgetConfig =
   WorkflowWidgetConfig SaveStep ValidateStep ButtonAndDropdownNavigation workflowTemplate

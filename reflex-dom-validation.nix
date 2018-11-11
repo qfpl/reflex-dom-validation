@@ -1,6 +1,6 @@
 { mkDerivation, aeson, base, containers, dependent-map
 , dependent-sum, errors, ghcjs-dom, jsaddle-warp, lens, mtl, reflex
-, reflex-dom, reflex-dom-storage, stdenv, text, validation
+, reflex-dom, reflex-dom-storage, stdenv, text, time, validation
 , wai-app-static
 }:
 mkDerivation {
@@ -10,7 +10,7 @@ mkDerivation {
   libraryHaskellDepends = [
     aeson base containers dependent-map dependent-sum errors ghcjs-dom
     jsaddle-warp lens mtl reflex reflex-dom reflex-dom-storage text
-    validation wai-app-static
+    time validation wai-app-static
   ];
   license = stdenv.lib.licenses.bsd3;
 }
