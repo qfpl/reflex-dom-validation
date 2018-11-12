@@ -22,6 +22,8 @@ library
                      , Reflex.Dom.Validation.Bootstrap.Errors
                      , Reflex.Dom.Validation.Bootstrap.Text
                      , Reflex.Dom.Validation.Bootstrap.Radio
+                     , Reflex.Dom.Validation.Bootstrap.Dropdown
+                     , Reflex.Dom.Validation.Bootstrap.Checkbox
                      , Reflex.Dom.Validation.Bootstrap.Workflow
                      , Bootstrap
                      , Demo
