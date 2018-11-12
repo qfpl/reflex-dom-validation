@@ -37,6 +37,9 @@ import Reflex.Dom.Validation
 import Data.Time.Calendar
 import Data.Time.Format
 
+import Data.Colour
+import Data.Colour.SRGB
+
 data ValidityError =
     BadInput
   | CustomError
@@ -151,6 +154,19 @@ newtype ValidInputConfigBuilder t m e a =
 
 -- probably want versions of these for Maybe Day, etc...
 -- can add the required attribute for the non-Maybe versions
+
+-- would be good to make this _not_ a form control, or otherwise tweak the height of it
+colourConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                    => ValidInputConfigBuilder t m e (Colour Double)
+colourConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (Text.pack . sRGB24show)
+    (maybe (Failure . pure $ _ValidityError . _BadInput # ()) (Success . fst) . headMay . sRGB24reads . Text.unpack)
+    "color"
+    (unWrap iv)
+    (fmapMaybe unWrap $ updated dv)
+    dattrs
 
 dayConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
                  => ValidInputConfigBuilder t m e Day

@@ -26,7 +26,7 @@ import Control.Lens
 import Control.Error
 
 import Data.Time.Calendar
-import Data.Time.Format
+import Data.Colour
 
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -47,15 +47,15 @@ import Reflex.Dom.Validation.Bootstrap.Html5
 
 data Foo f =
   Foo {
-    _fooA :: Wrap Double f
+    _fooA :: Wrap Day f
   , _fooB :: Wrap (Maybe Text) f
   , _fooC :: Wrap (Maybe Text) f
   }
 
-deriving instance (Eq (f Double), Eq (f (Maybe Text))) => Eq (Foo f)
-deriving instance (Ord (f Double), Ord (f (Maybe Text))) => Ord (Foo f)
-deriving instance (Show (f Double), Show (f (Maybe Text))) => Show (Foo f)
-deriving instance (Read (f Double), Read (f (Maybe Text))) => Read (Foo f)
+deriving instance (Eq (f Day), Eq (f (Maybe Text))) => Eq (Foo f)
+deriving instance (Ord (f Day), Ord (f (Maybe Text))) => Ord (Foo f)
+deriving instance (Show (f Day), Show (f (Maybe Text))) => Show (Foo f)
+deriving instance (Read (f Day), Read (f (Maybe Text))) => Read (Foo f)
 
 makeLenses ''Foo
 
@@ -85,7 +85,7 @@ fooAV :: forall t m e.
          )
       => Proxy t
       -> Proxy m
-      -> ValidationFn e (Wrap Double) (Wrap Double)
+      -> ValidationFn e (Wrap Day) (Wrap Day)
 fooAV _ _ _ (Wrap (Just x)) =
   Success . Wrap . Identity $ x
 fooAV _ _ i (Wrap Nothing) =
@@ -95,9 +95,9 @@ fooAW :: ( MonadWidget t m
          , HasErrorMessage e
          , HasValidityError e
          )
-      => ValidationWidget t m e (Wrap Double)
+      => ValidationWidget t m e (Wrap Day)
 fooAW =
-  validWidget $ ValidWidgetConfig (Just "A") decimalConfigBuilder
+  validWidget $ ValidWidgetConfig (Just "A") dayConfigBuilder
 
 fooAF :: forall t m e.
          ( MonadWidget t m
@@ -105,7 +105,7 @@ fooAF :: forall t m e.
          , HasFooNotDigits e
          , HasValidityError e
          )
-      => Field t m e Foo (Wrap Double)
+      => Field t m e Foo (Wrap Day)
 fooAF =
   Field fooA (\i -> Id (Just i) "-a") (fooAV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooAW
 

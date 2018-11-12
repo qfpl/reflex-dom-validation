@@ -38,6 +38,7 @@ library
                      , validation
                      , text
                      , time
+                     , colour
                      , errors
                      , containers
                      , dependent-sum
