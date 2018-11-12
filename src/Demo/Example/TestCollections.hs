@@ -123,7 +123,8 @@ testCollectionsF :: forall t m e f.
                     , HasFooNotLower e
                     , HasFooNotUpper e
                     , HasValidityError e
-                    , AsTestCollections f)
+                    , AsTestCollections f
+                    )
                  => Field t m e f TestCollections
 testCollectionsF =
   Field testCollections (\i -> Id (Just i) "-tc") (testCollectionsV (Proxy :: Proxy t) (Proxy :: Proxy m)) testCollectionsW

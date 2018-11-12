@@ -18,6 +18,7 @@ library
                      , Reflex.Dom.Validation.Workflow
                      , Reflex.Dom.Validation.Html5
                      , Reflex.Dom.Validation.Bootstrap
+                     , Reflex.Dom.Validation.Bootstrap.Html5
                      , Reflex.Dom.Validation.Bootstrap.Errors
                      , Reflex.Dom.Validation.Bootstrap.Text
                      , Reflex.Dom.Validation.Bootstrap.Radio

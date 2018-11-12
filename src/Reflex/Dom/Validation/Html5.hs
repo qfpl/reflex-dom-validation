@@ -11,10 +11,10 @@ Portability : non-portable
 module Reflex.Dom.Validation.Html5 where
 
 import Control.Monad (join)
-import Data.Bool (bool)
 import Text.Read (readMaybe)
 
 import Control.Lens
+import Control.Error
 
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -33,6 +33,9 @@ import Data.Validation
 import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
+
+import Data.Time.Calendar
+import Data.Time.Format
 
 data ValidityError =
     BadInput
@@ -91,22 +94,26 @@ checkValid vs =
 
 data ValidInputConfig t e a =
   ValidInputConfig {
-    vicToText :: a -> Text
-  , vicFromText :: Text -> Validation (NonEmpty e) a
-  , vicType :: Text
-  , vicInitialValue :: Maybe a
-  , vicSetValue :: Event t a
-  , vicAttributes :: Dynamic t (Map Text Text)
+    _vicToText :: a -> Text
+  , _vicFromText :: Text -> Validation (NonEmpty e) a
+  , _vicType :: Text
+  , _vicInitialValue :: Maybe a
+  , _vicSetValue :: Event t a
+  , _vicAttributes :: Dynamic t (Map Text Text)
   }
+
+makeLenses ''ValidInputConfig
 
 data ValidInput t e a =
   ValidInput {
-    viValue :: Dynamic t (Validation (NonEmpty e) a)
-  , viInput :: Event t (Validation (NonEmpty e) a)
-  , viHasFocus :: Dynamic t Bool
+    _viValue :: Dynamic t (Validation (NonEmpty e) a)
+  , _viInput :: Event t (Validation (NonEmpty e) a)
+  , _viHasFocus :: Dynamic t Bool
   }
 
-valid :: (MonadWidget t m, HasValidityError e, HasErrorMessage e, Show a)
+makeLenses ''ValidInput
+
+valid :: (MonadWidget t m, HasValidityError e, HasErrorMessage e)
       => ValidInputConfig t e a
       -> m (ValidInput t e a)
 valid (ValidInputConfig vTo vFrom vType initial eSetValue dAttrs) = do
@@ -126,57 +133,57 @@ valid (ValidInputConfig vTo vFrom vType initial eSetValue dAttrs) = do
     eValidate = current (_inputElement_value i) <@ (ffilter not . updated . _inputElement_hasFocus $ i)
   input' <- performEvent $ check <$> leftmost [eUserChange, eValidate]
 
-  d <- holdDyn (vFrom "") input'
-  -- display $ either (show . fmap errorMessage) show . toEither <$> d
-
   let initial' = maybe (Failure . pure $ _ValidityError # ValueMissing) Success initial
   updated' <- performEvent $ check <$> updated (_inputElement_value i)
   value' <- holdDyn initial' updated'
-
-  -- display $ either (show . fmap errorMessage) show . toEither <$> value'
 
   return $ ValidInput
     value'
     input'
     (_inputElement_hasFocus i)
 
--- data NumberInputConfig t =
---   NumberInputConfig {
---     nicInitialValue :: Maybe Int
---   , nicSetValue :: Event t Int
---   , nicAttributes :: Dynamic t (Map Text Text)
---   }
+newtype ValidInputConfigBuilder t m e a =
+  ValidInputConfigBuilder {
+    runValidInputConfigBuilder :: Dynamic t (Wrap a Maybe)
+                               -> Dynamic t (Map Text Text)
+                               -> m (ValidInputConfig t e a)
+  }
 
--- data NumberInput t =
---   NumberInput {
---     niValue :: Dynamic t (Maybe Int)
---   , niInput :: Event t (Maybe Int)
---   , niHasFocus :: Dynamic t Bool
---   }
+-- probably want versions of these for Maybe Day, etc...
+-- can add the required attribute for the non-Maybe versions
 
--- number :: MonadWidget t m => NumberInputConfig t -> m (NumberInput t)
--- number (NumberInputConfig initial eSetValue dAttrs) = do
---   modifyAttrs <- dynamicAttributesToModifyAttributes $ fmap (Map.insert "type" "number") dAttrs
---   i <- inputElement $ def
---     & inputElementConfig_initialValue .~ maybe "" (Text.pack . show) initial
---     & inputElementConfig_setValue .~ (Text.pack . show <$> eSetValue)
---     & inputElementConfig_elementConfig . elementConfig_modifyAttributes .~ fmap mapKeysToAttributeName modifyAttrs
+dayConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                 => ValidInputConfigBuilder t m e Day
+dayConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (Text.pack . formatTime defaultTimeLocale "%Y-%m-%d")
+    (maybe (Failure . pure $ _ValidityError . _BadInput # ()) (Success . fst) . headMay . readSTime False defaultTimeLocale "%Y-%m-%d" . Text.unpack)
+    "date"
+    (unWrap iv)
+    (fmapMaybe unWrap $ updated dv)
+    dattrs
 
---   -- let
---   --   f = checkValidity . _inputElement_raw $ i
---   -- eV <- performEvent $ f <$ _inputElement_input i
---   -- dV <- holdDyn False eV
---   -- display dV
+intConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                 => ValidInputConfigBuilder t m e Int
+intConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (Text.pack . show)
+    (maybe (Failure . pure $ _ValidityError . _BadInput # ()) Success . readMaybe . Text.unpack)
+    "number"
+    (unWrap iv)
+    (fmapMaybe unWrap $ updated dv)
+    (pure ("placeholder" =: "0") <> dattrs)
 
---   -- let
---   --   g = do
---   --     vs <- getValidity . _inputElement_raw $ i
---   --     checkValid vs
---   -- eVs <- performEvent $ g <$ _inputElement_input i
---   -- d <- holdDyn (Success ()) eVs
---   -- display d
-
---   return $ NumberInput
---     (readMaybe . Text.unpack <$> _inputElement_value i)
---     (readMaybe . Text.unpack <$> _inputElement_input i)
---     (_inputElement_hasFocus i)
+decimalConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                     => ValidInputConfigBuilder t m e Double
+decimalConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (Text.pack . show)
+    (maybe (Failure . pure $ _ValidityError . _BadInput # ()) Success . readMaybe . Text.unpack)
+    "number"
+    (unWrap iv)
+    (fmapMaybe unWrap $ updated dv)
+    (pure ("placeholder" =: "0.00" <> "step" =: "0.01") <> dattrs)

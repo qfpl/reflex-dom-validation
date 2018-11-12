@@ -23,6 +23,7 @@ import Data.Proxy (Proxy(..))
 import Text.Read (readMaybe)
 
 import Control.Lens
+import Control.Error
 
 import Data.Time.Calendar
 import Data.Time.Format
@@ -42,18 +43,19 @@ import Reflex.Dom.Validation.Workflow
 import Reflex.Dom.Validation.Bootstrap.Text
 import Reflex.Dom.Validation.Bootstrap.Workflow
 import Reflex.Dom.Validation.Bootstrap.Errors
+import Reflex.Dom.Validation.Bootstrap.Html5
 
 data Foo f =
   Foo {
-    _fooA :: Wrap Day f
+    _fooA :: Wrap Double f
   , _fooB :: Wrap (Maybe Text) f
   , _fooC :: Wrap (Maybe Text) f
   }
 
-deriving instance (Eq (f Day), Eq (f (Maybe Text))) => Eq (Foo f)
-deriving instance (Ord (f Day), Ord (f (Maybe Text))) => Ord (Foo f)
-deriving instance (Show (f Day), Show (f (Maybe Text))) => Show (Foo f)
-deriving instance (Read (f Day), Read (f (Maybe Text))) => Read (Foo f)
+deriving instance (Eq (f Double), Eq (f (Maybe Text))) => Eq (Foo f)
+deriving instance (Ord (f Double), Ord (f (Maybe Text))) => Ord (Foo f)
+deriving instance (Show (f Double), Show (f (Maybe Text))) => Show (Foo f)
+deriving instance (Read (f Double), Read (f (Maybe Text))) => Read (Foo f)
 
 makeLenses ''Foo
 
@@ -75,35 +77,15 @@ class HasFooNotLower e where
 class HasFooNotUpper e where
   _FooNotUpper :: Prism' e ()
 
--- fooAV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotDigits e)
---       => Proxy t
---       -> Proxy m
---       -> ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
--- fooAV _ _ i (Wrap (Just (Just t))) =
---   if all isDigit (Text.unpack t)
---   then Success . Wrap . Identity . Just $ t
---   else Failure . pure . WithId i $ _FooNotDigits # ()
--- fooAV _ _ _ _ =
---   Success . Wrap . Identity $ Nothing
-
--- fooAW :: (MonadWidget t m, HasErrorMessage e)
---       => ValidationWidget t m e (Wrap (Maybe Text))
--- fooAW =
---   textWidget (TextWidgetConfig (Just "A") UpdateOnChange)
-
--- fooAF :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotDigits e)
---       => Field t m e Foo (Wrap (Maybe Text))
--- fooAF =
---   Field fooA (\i -> Id (Just i) "-a") (fooAV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooAW
-
 fooAV :: forall t m e.
          ( MonadWidget t m
          , HasErrorMessage e
          , HasFooNotDigits e
+         , HasValidityError e
          )
       => Proxy t
       -> Proxy m
-      -> ValidationFn e (Wrap Day) (Wrap Day)
+      -> ValidationFn e (Wrap Double) (Wrap Double)
 fooAV _ _ _ (Wrap (Just x)) =
   Success . Wrap . Identity $ x
 fooAV _ _ i (Wrap Nothing) =
@@ -113,28 +95,9 @@ fooAW :: ( MonadWidget t m
          , HasErrorMessage e
          , HasValidityError e
          )
-      => ValidationWidget t m e (Wrap Day)
-fooAW i dv des =
-  -- textWidget (TextWidgetConfig (Just "A") UpdateOnChange)
-  divClass "form-group" $ do
-    iv <- sample . current $ dv
-    vi <- valid $
-      ValidInputConfig
-        (Text.pack . formatTime defaultTimeLocale "%Y-%m-%d")
-        (Success . parseTimeOrError False defaultTimeLocale "%Y-%m-%d" . Text.unpack)
-        "date"
-        (unWrap iv)
-        (fmapMaybe unWrap $ updated dv)
-        (pure mempty)
-    let
-      (eFailure, eSuccess) = fanEither . fmap toEither . viInput $ vi
-    dFailure <- holdDyn [] . leftmost $
-      [ fmap (WithId i) . NonEmpty.toList <$> eFailure
-      , [] <$ eSuccess
-      ]
-
-    errorsForId i des
-    pure $ ValidationWidgetOutput dFailure (Endo . const . Wrap . Just <$> eSuccess)
+      => ValidationWidget t m e (Wrap Double)
+fooAW =
+  validWidget $ ValidWidgetConfig (Just "A") decimalConfigBuilder
 
 fooAF :: forall t m e.
          ( MonadWidget t m
@@ -142,7 +105,7 @@ fooAF :: forall t m e.
          , HasFooNotDigits e
          , HasValidityError e
          )
-      => Field t m e Foo (Wrap Day)
+      => Field t m e Foo (Wrap Double)
 fooAF =
   Field fooA (\i -> Id (Just i) "-a") (fooAV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooAW
 

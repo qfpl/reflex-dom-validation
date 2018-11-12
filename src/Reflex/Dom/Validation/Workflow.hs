@@ -126,7 +126,11 @@ workflowWidget steps wwc i dv des =
 
             checkValidation e =
               let
-                (eF, eIS) = fanEither $ (\v ix -> fmap (\s -> (ix, s)) . toEither . fieldValidation f i $ v) <$> current dv' <@> e
+                change es (Left (x NE.:| xs)) = Left (x NE.:| (xs ++ es))
+                change [] (Right x) = Right x
+                change (e:es) _ = Left (e NE.:| es)
+                fes es v ix = change es . fmap (\s -> (ix, s)) . toEither . fieldValidation f i $ v
+                (eF, eIS) = fanEither $ fes <$> current dFailure <*> current dv' <@> e
               in
                 (eF, (\v (i, s) -> (i, set fl (nmap (Just . runIdentity) s) v)) <$> current dv' <@> eIS)
 
