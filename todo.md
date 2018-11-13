@@ -1,9 +1,33 @@
 
 
+- something for dealing with dropdowns as form inputs 
+  - use selects rather than bootstrapDropdown
+- add something for textarea
 
-- something for dealing with dropdowns and groups of checkboxes
+- if validation is required to move forward, we need to validate everything
+  between the current index and the new index, and stop at the first one that fails to validate
+
+- the ability to separate out the workflow controls from the workflow forms
+  - so we can have multiple dropdowns in a row for nested workflows
 
 - complete HTML5 inputs
+
+
+- need to test out the combination of this with reflex-dom-storage
+- should we look at dividing the state into data-state and ui-state, if we want to be able to
+  store the position in the UI navigation as well
+  
+ 
+ 
+ 
+ 
+ 
+ 
+  
+
+
+
+
 
 - could do something like the workflow list for bootstrap rows
 - could add a config type with a default value for the workflow list steps

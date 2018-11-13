@@ -98,6 +98,15 @@ instance FromJSON a => FromJSON (Wrap a Maybe) where
 instance NFunctor (Wrap a) where
   nmap f (Wrap g) = Wrap (f g)
 
+instance Semigroup a => Semigroup (Wrap a Maybe) where
+  x <> Wrap Nothing = x
+  Wrap Nothing <> y = y
+  Wrap (Just x) <> Wrap (Just y) = Wrap (Just (x <> y))
+
+instance Semigroup a => Monoid (Wrap a Maybe) where
+  mempty = Wrap Nothing
+  mappend = (<>)
+
 type ValidationFn e f f' =
   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
 

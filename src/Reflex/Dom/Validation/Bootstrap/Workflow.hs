@@ -51,7 +51,7 @@ workflowTemplate sn wix l labels w =
           el "label" . text . fromMaybe "" $ atMay labels wix
           pure never
         _ -> do
-          d <- bootstrapDropdown wix (pure . Map.fromList . zip [0..] $ labels)
+          d <- bootstrapDropdown wix (pure . Map.fromList . zip [0..] $ labels) def
           pure $ d ^. dropdown_change
       eChange <- divClass "row" . divClass "col" $ w
       eIxButtons <- if sn /= DropdownNavigation

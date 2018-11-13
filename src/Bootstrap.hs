@@ -122,30 +122,22 @@ buttonClass :: MonadWidget t m => Text -> Text -> m (Event t ())
 buttonClass label =
   dynButtonClass (pure label)
 
--- <div class="dropdown">
---   <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
---     Dropdown button
---   </button>
---   <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
---     <a class="dropdown-item" href="#">Action</a>
---     <a class="dropdown-item" href="#">Another action</a>
---     <a class="dropdown-item" href="#">Something else here</a>
---   </div>
--- </div>
-
 bootstrapDropdown :: forall k t m. (DomBuilder t m, MonadFix m, MonadHold t m, PostBuild t m, Ord k)
                   => k
                   -> Dynamic t (Map k Text)
-                  -- -> DropdownConfig t k
+                  -> DropdownConfig t k
                   -> m (Dropdown t k)
-bootstrapDropdown k0 options = -- (DropdownConfig setK attrs) =
+bootstrapDropdown k0 options (DropdownConfig setK dAttrs) =
   divClass "dropdown" $ mdo
-    (elShow, _) <- elAttr' "button" (
-      "class" =: "btn dropdown-toggle" <>
-      "type" =: "button" <>
-      "data-toggle" =: "dropdown" <>
-      "aria-haspopup" =: "true" <>
-      "aria-expanded" =: "false") $ dynText . fmap (fromMaybe "") $ flip Map.lookup <$> options <*> dButton
+    let
+      attrs =
+        "class" =: "btn dropdown-toggle" <>
+        "type" =: "button" <>
+        "data-toggle" =: "dropdown" <>
+        "aria-haspopup" =: "true" <>
+        "aria-expanded" =: "false"
+    (elShow, _) <- elDynAttr' "button" (pure attrs <> dAttrs) $
+      dynText . fmap (fromMaybe "") $ flip Map.lookup <$> options <*> dButton
     let eShow = domEvent Click elShow
     dChangeShow <- toggle False eShow
     dShow <- holdDyn False . leftmost $ [
@@ -154,10 +146,10 @@ bootstrapDropdown k0 options = -- (DropdownConfig setK attrs) =
       ]
     let
       dClass = ("class" =:) . ("dropdown-menu" <>) . bool "" " show" <$> dShow
-    deButtons <- elDynAttr "div" dClass $ do
+    deButtons <- elDynAttr "div" dClass $
         listWithKey options $ \k v -> do
-          (el, _) <- elAttr' "a" ("class" =: "dropdown-item" <> "href" =: "#") $ dynText v
-          pure $ k <$ domEvent Click el
+          (elButton, _) <- elAttr' "a" ("class" =: "dropdown-item" <> "href" =: "#") $ dynText v
+          pure $ k <$ domEvent Click elButton
     let eButton = fmap (head . Map.keys) . switchDyn . fmap mergeMap $ deButtons
-    dButton <- holdDyn k0 eButton
+    dButton <- holdDyn k0 $ leftmost [eButton, setK]
     pure $ Dropdown dButton eButton

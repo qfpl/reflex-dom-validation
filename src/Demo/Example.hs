@@ -29,11 +29,18 @@ import Demo.Example.Error
 -- - we might want to tie that to buttons in workflows etc..., and so making that configurable might be a thing
 
 go :: forall t m. MonadWidget t m => m (Event t (TestCollections Identity))
-go = wrapUp (testCollectionsF :: Field t m MyError TestCollections TestCollections) (TestCollections (CompletedWithReason (Wrap Nothing) (Wrap Nothing)) mempty (Foo (Wrap Nothing) (Wrap Nothing) (Wrap Nothing))) $ \d -> do
+go =
+  let
+    i = TestCollections
+          (CompletedWithReason (Wrap Nothing) (Wrap Nothing))
+          mempty
+          (Foo (SelectDemo (Wrap Nothing) (Wrap Nothing) (Wrap Nothing)) (Wrap Nothing) (Wrap Nothing) (Wrap Nothing))
+  in
+    wrapUp (testCollectionsF :: Field t m MyError TestCollections TestCollections) i $ \d -> do
 
-  -- the version with a validation button
-  eValidate <- buttonClass "Validate" "btn"
-  pure (current d <@ eValidate)
+      -- the version with a validation button
+      eValidate <- buttonClass "Validate" "btn"
+      pure (current d <@ eValidate)
 
-  -- the version where every change causes a validation
-  -- pure (updated d)
+      -- the version where every change causes a validation
+      -- pure (updated d)

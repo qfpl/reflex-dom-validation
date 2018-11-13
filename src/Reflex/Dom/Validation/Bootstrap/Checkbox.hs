@@ -16,6 +16,7 @@ module Reflex.Dom.Validation.Bootstrap.Checkbox (
 
 import Control.Monad (forM, forM_)
 import Data.Bool (bool)
+import Data.Maybe (fromMaybe)
 import Data.Monoid (Endo(..))
 
 import Control.Lens
@@ -53,13 +54,13 @@ checkboxWidget :: (MonadWidget t m, HasErrorMessage e, Ord c)
                => CheckboxWidgetConfig c
                -> ValidationWidget t m e (Wrap (Set c))
 checkboxWidget cwc i dv des = divClass "form-group" $ do
-  forM_ (cwc ^. cwcLabel) $
-    el "label" . text
-
   let
     it = idToText i
     cls = "form-check " <> bool " form-check-inline" "" (cwc ^. cwcStacked)
     wrapGroup = maybe id (const $ divClass "form-group") (cwc ^. cwcLabel)
+
+  forM_ (cwc ^. cwcLabel) $
+    elAttr "label" ("for" =: it) . text
 
   es <- wrapGroup . forM (cwc ^. cwcValues) $ \(CheckboxOptionConfig kl ki v) -> divClass cls $ do
     let
@@ -79,7 +80,7 @@ checkboxWidget cwc i dv des = divClass "form-group" $ do
 
     errorsForId i des
 
-    pure $ bool mempty (Set.singleton v) <$> ev'
+    pure $ bool (Set.delete v) (Set.insert v) <$> ev'
 
   pure . ValidationWidgetOutput (pure mempty) $
-    Endo . const . Wrap . Just <$> mergeWith (<>) es
+    (\fs -> Endo $ \(Wrap mss) -> Wrap . Just . fs $ fromMaybe mempty mss) <$> mergeWith (.) es

@@ -50,13 +50,13 @@ radioWidget :: (MonadWidget t m, HasErrorMessage e, Eq c)
             => RadioWidgetConfig c
             -> ValidationWidget t m e (Wrap c)
 radioWidget rwc i dv des = divClass "form-group" $ do
-  forM_ (rwc ^. rwcLabel) $
-    el "label" . text
-
   let
     it = idToText i
     cls = "form-check " <> bool " form-check-inline" "" (rwc ^. rwcStacked)
     wrapGroup = maybe id (const $ divClass "form-group") (rwc ^. rwcLabel)
+
+  forM_ (rwc ^. rwcLabel) $
+    elAttr "label" ("for" =: it) . text
 
   es <- wrapGroup . forM (rwc ^. rwcValues) $ \(RadioOptionConfig kl ki v) -> divClass cls $ do
     let
