@@ -13,8 +13,11 @@ module Demo.Example.Error (
 
 import Control.Lens.TH
 
+import qualified Data.Text as Text
+
 import Reflex.Dom.Validation
 import Reflex.Dom.Validation.Html5
+import Reflex.Dom.Validation.Workflow
 
 import Demo.Example.CompletedWithReason
 import Demo.Example.TestCollections
@@ -28,6 +31,7 @@ data MyError =
   | MEFooNotLower
   | MEFooNotUpper
   | MEValidity ValidityError
+  | MEBadWorkflowIndex Int
   deriving (Eq, Ord, Show, Read)
 
 makePrisms ''MyError
@@ -40,6 +44,7 @@ instance HasErrorMessage MyError where
   errorMessage MEFooNotLower = "Not lowercase"
   errorMessage MEFooNotUpper = "Not uppercase"
   errorMessage (MEValidity ve) = errorMessage ve
+  errorMessage (MEBadWorkflowIndex i) = "Bad workflow index: " <> (Text.pack . show $ i)
 
 instance HasNotSpecified MyError where
   _NotSpecified = _MENotSpecified
@@ -61,3 +66,6 @@ instance HasFooNotUpper MyError where
 
 instance HasValidityError MyError where
   _ValidityError = _MEValidity
+
+instance HasBadWorkflowIndex MyError where
+  _BadWorkflowIndex = _MEBadWorkflowIndex

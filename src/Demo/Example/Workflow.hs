@@ -262,6 +262,7 @@ fooW :: ( MonadWidget t m
         , HasFooNotUpper e
         , HasValidityError e
         , HasNotSpecified e
+        , HasBadWorkflowIndex e
         )
       => ValidationWidget t m e Foo
 fooW =
@@ -282,6 +283,7 @@ fooF :: forall t m e f.
         , HasFooNotUpper e
         , HasValidityError e
         , HasNotSpecified e
+        , HasBadWorkflowIndex e
         , AsFoo f)
       => Field t m e f Foo
 fooF =

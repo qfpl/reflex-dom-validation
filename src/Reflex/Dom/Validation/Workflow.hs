@@ -15,18 +15,13 @@ module Reflex.Dom.Validation.Workflow (
   , _BlankStep
   , _SaveStep
   , _ValidateStep
-  , StepNavigation(..)
-  , _ButtonNavigation
-  , _ButtonNavigationWithStepLabels
-  , _DropdownNavigation
-  , _ButtonAndDropdownNavigation
   , WorkflowStep(..)
   , WorkflowWidgetConfig(..)
   , wwcBackRequirement
   , wwcNextRequirement
-  , wwcNavigation
   , wwcTemplate
   , workflowWidget
+  , HasBadWorkflowIndex(..)
   ) where
 
 import Control.Monad (join)
@@ -43,7 +38,7 @@ import qualified Data.Text as Text
 import qualified Data.List.NonEmpty as NE
 
 import Reflex.Dom.Core
-import Data.Validation (toEither)
+import Data.Validation
 
 import Reflex.Dom.Validation
 
@@ -61,22 +56,11 @@ data WorkflowStep t m e f where
 stepLabel :: WorkflowStep t m e f -> Text
 stepLabel (WorkflowStep l _) = l
 
-data StepNavigation =
-    ButtonNavigation
-  | ButtonNavigationWithStepLabels
-  | DropdownNavigation
-  | ButtonAndDropdownNavigation
-  deriving (Eq, Ord, Show, Read)
-
-makePrisms ''StepNavigation
-
 data WorkflowWidgetConfig t m e f =
   WorkflowWidgetConfig {
     _wwcBackRequirement :: StepRequirement
   , _wwcNextRequirement :: StepRequirement
-  , _wwcNavigation :: StepNavigation
-  , _wwcTemplate :: StepNavigation
-                 -> Int
+  , _wwcTemplate :: Int
                  -> Int
                  -> [Text]
                  -> m (ValidationWidgetOutput t e f)
@@ -85,8 +69,36 @@ data WorkflowWidgetConfig t m e f =
 
 makeLenses ''WorkflowWidgetConfig
 
+foldValidation :: [e] -> Either (NE.NonEmpty e) x -> Either (NE.NonEmpty e) x
+foldValidation es (Left (x NE.:| xs)) = Left (x NE.:| (xs ++ es))
+foldValidation [] (Right x) = Right x
+foldValidation (e:es) _ = Left (e NE.:| es)
+
+class HasBadWorkflowIndex e where
+  _BadWorkflowIndex :: Prism' e Int
+
+validateBetween :: (NFunctor f, HasBadWorkflowIndex e)
+                => [WorkflowStep t m e f]
+                -> Id
+                -> Int
+                -> [WithId e]
+                -> f Maybe
+                -> Int
+                -> (Int, Either (NE.NonEmpty (WithId e)) (f Maybe))
+validateBetween steps i ixStart es v ixStop =
+  case atMay steps ixStart of
+    Nothing ->
+      (ixStart, Left $ (WithId i $ _BadWorkflowIndex # ixStart) NE.:| es)
+    Just (WorkflowStep _ f@(Field fl _ _ _)) ->
+      case fmap (flip (set fl) v . nmap (Just . runIdentity)) . foldValidation es . toEither . fieldValidation f i $ v of
+        Left e -> (ixStart, Left e)
+        Right v' -> case compare ixStart ixStop of
+          EQ -> (ixStart, Right v')
+          LT -> validateBetween steps i (ixStart + 1) es v' ixStop
+          GT -> validateBetween steps i (ixStart - 1) es v' ixStop
+
 workflowWidget :: forall t m e f.
-                  (MonadWidget t m, Eq e, NFunctor f)
+                  (MonadWidget t m, Eq e, HasBadWorkflowIndex e, NFunctor f)
                => [WorkflowStep t m e f]
                -> WorkflowWidgetConfig t m e f
                -> ValidationWidget t m e f
@@ -103,7 +115,7 @@ workflowWidget steps wwc i dv des =
           text "Indexing error"
           pure (mempty, never)
         Just (WorkflowStep _ f@(Field fl _ _ _)) -> Workflow $ mdo
-          (eIx, ValidationWidgetOutput dFailure eChange) <- (wwc ^. wwcTemplate) (wwc ^. wwcNavigation) wix l labels $
+          (eIx, ValidationWidgetOutput dFailure eChange) <- (wwc ^. wwcTemplate) wix l labels $
             fieldWidget f i dv des
           let
             eBack = ffilter (< wix) eIx
@@ -126,11 +138,10 @@ workflowWidget steps wwc i dv des =
 
             checkValidation e =
               let
-                change es (Left (x NE.:| xs)) = Left (x NE.:| (xs ++ es))
-                change [] (Right x) = Right x
-                change (e:es) _ = Left (e NE.:| es)
-                fes es v ix = change es . fmap (\s -> (ix, s)) . toEither . fieldValidation f i $ v
+                fes es v ix = foldValidation es . fmap (\s -> (ix, s)) . toEither . fieldValidation f i $ v
                 (eF, eIS) = fanEither $ fes <$> current dFailure <*> current dv' <@> e
+                -- TODO validate from here to the new index, stop at first validation error
+                -- (eF, eIS) = fanEither $ validateBetween steps i wix <$> current dFailure <*> current dv' <@> e
               in
                 (eF, (\v (i, s) -> (i, set fl (nmap (Just . runIdentity) s) v)) <$> current dv' <@> eIS)
 
