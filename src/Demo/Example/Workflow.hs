@@ -46,7 +46,7 @@ import Reflex.Dom.Validation.Workflow
 import Reflex.Dom.Validation.Bootstrap.Text
 import Reflex.Dom.Validation.Bootstrap.Workflow
 import Reflex.Dom.Validation.Bootstrap.Checkbox
-import Reflex.Dom.Validation.Bootstrap.Dropdown
+import Reflex.Dom.Validation.Bootstrap.Select
 import Reflex.Dom.Validation.Bootstrap.Errors
 import Reflex.Dom.Validation.Bootstrap.Html5
 
@@ -56,13 +56,13 @@ data SelectDemo f =
   SelectDemo {
     _sdOne :: Wrap Bar f
   , _sdMaybe :: Wrap (Maybe Bar) f
-  , _sdMultiple :: Wrap (Set Bar) f
+  -- , _sdMultiple :: Wrap (Set Bar) f
   }
 
-deriving instance (Eq (f Bar), Eq (f (Maybe Bar)), Eq (f (Set Bar))) => Eq (SelectDemo f)
-deriving instance (Ord (f Bar), Ord (f (Maybe Bar)), Ord (f (Set Bar))) => Ord (SelectDemo f)
-deriving instance (Show (f Bar), Show (f (Maybe Bar)), Show (f (Set Bar))) => Show (SelectDemo f)
-deriving instance (Read (f Bar), Read (f (Maybe Bar)), Read (f (Set Bar))) => Read (SelectDemo f)
+deriving instance (Eq (f Bar), Eq (f (Maybe Bar))) => Eq (SelectDemo f)
+deriving instance (Ord (f Bar), Ord (f (Maybe Bar))) => Ord (SelectDemo f)
+deriving instance (Show (f Bar), Show (f (Maybe Bar))) => Show (SelectDemo f)
+deriving instance (Read (f Bar), Read (f (Maybe Bar))) => Read (SelectDemo f)
 
 makeLenses ''SelectDemo
 
@@ -73,7 +73,7 @@ instance AsSelectDemo SelectDemo where
   selectDemo = id
 
 instance NFunctor SelectDemo where
-  nmap f (SelectDemo o ma my) = SelectDemo (nmap f o) (nmap f ma) (nmap f my)
+  nmap f (SelectDemo o ma)  = SelectDemo (nmap f o) (nmap f ma)
 
 data Foo f =
   Foo {
@@ -190,7 +190,7 @@ selectOV _ _ i (Wrap Nothing) = Failure . pure . WithId i $ _NotSpecified # ()
 selectOW :: (MonadWidget t m, HasErrorMessage e)
          => ValidationWidget t m e (Wrap Bar)
 selectOW =
-  selectWidget . SelectWidgetConfig (Just "One") $
+  selectWidget A . SelectWidgetConfig (Just "One") $
     [ SelectOptionConfig "A" A
     , SelectOptionConfig "B" B
     , SelectOptionConfig "C" C
@@ -218,38 +218,19 @@ selectMaF :: forall t m e. (MonadWidget t m, HasErrorMessage e) => Field t m e S
 selectMaF =
   Field sdMaybe (\i -> Id (Just i) "-ma") (selectMaV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectMaW
 
-selectMuV :: MonadWidget t m => Proxy t -> Proxy m -> ValidationFn e (Wrap (Set Bar)) (Wrap (Set Bar))
-selectMuV _ _ i (Wrap (Just s)) = Success . Wrap . Identity $ s
-selectMuV _ _ i (Wrap Nothing) = Success . Wrap . Identity $ mempty
-
-selectMuW :: (MonadWidget t m, HasErrorMessage e)
-          => ValidationWidget t m e (Wrap (Set Bar))
-selectMuW =
-  selectMultipleWidget . SelectWidgetConfig (Just "Multiple") $
-    [ SelectOptionConfig "A" A
-    , SelectOptionConfig "B" B
-    , SelectOptionConfig "C" C
-    ]
-
-selectMuF :: forall t m e. (MonadWidget t m, HasErrorMessage e) => Field t m e SelectDemo (Wrap (Set Bar))
-selectMuF =
-  Field sdMultiple (\i -> Id (Just i) "-mu") (selectMuV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectMuW
-
 fooDV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e, HasNotSpecified e)
       => Proxy t -> Proxy m -> ValidationFn e SelectDemo SelectDemo
 fooDV _ _ i cr =
   SelectDemo <$>
     fieldValidation (selectOF @t @m) i cr <*>
-    fieldValidation (selectMaF @t @m) i cr <*>
-    fieldValidation (selectMuF @t @m) i cr
+    fieldValidation (selectMaF @t @m) i cr
 
 fooDW :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
       => ValidationWidget t m e SelectDemo
 fooDW i dv des = do
   eO <- fieldWidget selectOF i dv des
   eMa <- fieldWidget selectMaF i dv des
-  eMu <- fieldWidget selectMuF i dv des
-  pure $ eO <> eMa <> eMu
+  pure $ eO <> eMa
 
 fooDF :: forall t m e f. (MonadWidget t m, AsSelectDemo f, HasErrorMessage e, HasFooNotUpper e, HasNotSpecified e)
       => Field t m e f SelectDemo

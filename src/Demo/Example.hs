@@ -34,7 +34,7 @@ go =
     i = TestCollections
           (CompletedWithReason (Wrap Nothing) (Wrap Nothing))
           mempty
-          (Foo (SelectDemo (Wrap Nothing) (Wrap Nothing) (Wrap Nothing)) (Wrap Nothing) (Wrap Nothing) (Wrap Nothing))
+          (Foo (SelectDemo (Wrap Nothing) (Wrap Nothing)) (Wrap Nothing) (Wrap Nothing) (Wrap Nothing))
   in
     wrapUp (testCollectionsF :: Field t m MyError TestCollections TestCollections) i $ \d -> do
 

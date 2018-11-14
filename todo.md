@@ -1,7 +1,4 @@
 
-
-- something for dealing with dropdowns as form inputs 
-  - use selects rather than bootstrapDropdown
 - add something for textarea
 
 - if validation is required to move forward, we need to validate everything
@@ -17,9 +14,6 @@
 - should we look at dividing the state into data-state and ui-state, if we want to be able to
   store the position in the UI navigation as well
   
- 
- 
- 
  
  
  
