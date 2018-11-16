@@ -49,7 +49,7 @@ workflowHeader :: MonadWidget t m
                -> Int
                -> [Text]
                -> m (Event t Int)
-workflowHeader sn wix labels =
+workflowHeader sn wix labels = divClass "col" $
   case sn of
     ButtonNavigation -> do
       el "label" . text . fromMaybe "" $ atMay labels wix

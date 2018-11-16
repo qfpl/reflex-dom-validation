@@ -8,6 +8,7 @@ Portability : non-portable
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Reflex.Dom.Validation.Workflow (
@@ -52,9 +53,11 @@ makePrisms ''StepRequirement
 
 data WorkflowStep t m e f where
   WorkflowStep :: Text -> Field t m e f f' -> WorkflowStep t m e f
+  -- WorkflowNested :: Text -> (forall g. Lens' (f g) (f' g)) -> [WorkflowStep t m e f'] -> WorkflowStep t m e f
 
 stepLabel :: WorkflowStep t m e f -> Text
 stepLabel (WorkflowStep l _) = l
+-- stepLabel (WorkflowNested l _ _) = l
 
 data WorkflowWidgetConfig t m e f =
   WorkflowWidgetConfig {
@@ -75,30 +78,6 @@ foldValidation (e:es) _ = Left (e NE.:| es)
 
 class HasBadWorkflowIndex e where
   _BadWorkflowIndex :: Prism' e Int
-
--- validateBetween :: (NFunctor f, HasBadWorkflowIndex e)
---                 => [WorkflowStep t m e f]
---                 -> Id
---                 -> Int
---                 -> [WithId e]
---                 -> f Maybe
---                 -> Int
---                 -> (Int, Either (NE.NonEmpty (WithId e)) (f Maybe))
--- validateBetween steps i ixStart (e:es) v ixStop =
---   (ixStart, Left $ e NE.:| es)
--- validateBetween steps i ixStart [] v ixStop =
---   case atMay steps ixStart of
---     Nothing ->
---       (ixStart, Left $ (WithId i $ _BadWorkflowIndex # ixStart) NE.:| [])
---     Just (WorkflowStep _ f@(Field fl _ _ _)) ->
---       case compare ixStart ixStop of
---           EQ -> (ixStart, Right v)
---           LT -> case fmap (flip (set fl) v . nmap (Just . runIdentity)) . toEither . fieldValidation f i $ v of
---             Left e -> (ixStart, Left e)
---             Right v' -> validateBetween steps i (ixStart + 1) [] v' ixStop
---           GT -> case fmap (flip (set fl) v . nmap (Just . runIdentity)) . toEither . fieldValidation f i $ v of
---             Left e -> (ixStart, Left e)
---             Right v' -> validateBetween steps i (ixStart - 1) [] v' ixStop
 
 workflowWidget :: forall t m e f.
                   (MonadWidget t m, Eq e, HasBadWorkflowIndex e, NFunctor f)
@@ -183,3 +162,27 @@ workflowWidget steps wwc i dv des =
       dd = _vwoFailures <$> dvwo
       de = _vwoSuccesses <$> dvwo
     pure $ ValidationWidgetOutput (join dd) (switchDyn de)
+
+-- validateBetween :: (NFunctor f, HasBadWorkflowIndex e)
+--                 => [WorkflowStep t m e f]
+--                 -> Id
+--                 -> Int
+--                 -> [WithId e]
+--                 -> f Maybe
+--                 -> Int
+--                 -> (Int, Either (NE.NonEmpty (WithId e)) (f Maybe))
+-- validateBetween steps i ixStart (e:es) v ixStop =
+--   (ixStart, Left $ e NE.:| es)
+-- validateBetween steps i ixStart [] v ixStop =
+--   case atMay steps ixStart of
+--     Nothing ->
+--       (ixStart, Left $ (WithId i $ _BadWorkflowIndex # ixStart) NE.:| [])
+--     Just (WorkflowStep _ f@(Field fl _ _ _)) ->
+--       case compare ixStart ixStop of
+--           EQ -> (ixStart, Right v)
+--           LT -> case fmap (flip (set fl) v . nmap (Just . runIdentity)) . toEither . fieldValidation f i $ v of
+--             Left e -> (ixStart, Left e)
+--             Right v' -> validateBetween steps i (ixStart + 1) [] v' ixStop
+--           GT -> case fmap (flip (set fl) v . nmap (Just . runIdentity)) . toEither . fieldValidation f i $ v of
+--             Left e -> (ixStart, Left e)
+--             Right v' -> validateBetween steps i (ixStart - 1) [] v' ixStop

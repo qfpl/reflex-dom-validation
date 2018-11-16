@@ -15,6 +15,7 @@ Portability : non-portable
 {-# LANGUAGE MonoLocalBinds #-}
 module Demo.Example.Workflow where
 
+import Control.Monad (join)
 import Data.Char (isDigit, isLower, isUpper)
 import Data.Bool (bool)
 import Data.Foldable
@@ -49,6 +50,208 @@ import Reflex.Dom.Validation.Bootstrap.Checkbox
 import Reflex.Dom.Validation.Bootstrap.Select
 import Reflex.Dom.Validation.Bootstrap.Errors
 import Reflex.Dom.Validation.Bootstrap.Html5
+
+data Nest1 f =
+  Nest1 {
+    _n1a :: Wrap (Maybe Text) f
+  , _n1b :: Wrap (Maybe Text) f
+  , _n1c :: Wrap (Maybe Text) f
+  }
+
+deriving instance (Eq (f (Maybe Text))) => Eq (Nest1 f)
+deriving instance (Ord (f (Maybe Text))) => Ord (Nest1 f)
+deriving instance (Show (f (Maybe Text))) => Show (Nest1 f)
+deriving instance (Read (f (Maybe Text))) => Read (Nest1 f)
+
+instance NFunctor Nest1 where
+  nmap z (Nest1 a b c) = Nest1 (nmap z a) (nmap z b) (nmap z c)
+
+makeLenses ''Nest1
+
+data Nest2 f =
+  Nest2 {
+    _n2d :: Wrap (Maybe Text) f
+  , _n2e :: Wrap (Maybe Text) f
+  , _n2f :: Wrap (Maybe Text) f
+  }
+
+deriving instance (Eq (f (Maybe Text))) => Eq (Nest2 f)
+deriving instance (Ord (f (Maybe Text))) => Ord (Nest2 f)
+deriving instance (Show (f (Maybe Text))) => Show (Nest2 f)
+deriving instance (Read (f (Maybe Text))) => Read (Nest2 f)
+
+instance NFunctor Nest2 where
+  nmap z (Nest2 a b c) = Nest2 (nmap z a) (nmap z b) (nmap z c)
+
+makeLenses ''Nest2
+
+data Nest3 f =
+  Nest3 {
+    _n3g :: Wrap (Maybe Text) f
+  , _n3h :: Wrap (Maybe Text) f
+  , _n3i :: Wrap (Maybe Text) f
+  }
+
+deriving instance (Eq (f (Maybe Text))) => Eq (Nest3 f)
+deriving instance (Ord (f (Maybe Text))) => Ord (Nest3 f)
+deriving instance (Show (f (Maybe Text))) => Show (Nest3 f)
+deriving instance (Read (f (Maybe Text))) => Read (Nest3 f)
+
+instance NFunctor Nest3 where
+  nmap z (Nest3 a b c) = Nest3 (nmap z a) (nmap z b) (nmap z c)
+
+makeLenses ''Nest3
+
+data Nest f =
+  Nest {
+    _n1 :: Nest1 f
+  , _n2 :: Nest2 f
+  , _n3 :: Nest3 f
+  }
+
+deriving instance (Eq (f (Maybe Text))) => Eq (Nest f)
+deriving instance (Ord (f (Maybe Text))) => Ord (Nest f)
+deriving instance (Show (f (Maybe Text))) => Show (Nest f)
+deriving instance (Read (f (Maybe Text))) => Read (Nest f)
+
+instance NFunctor Nest where
+  nmap z (Nest a b c) = Nest (nmap z a) (nmap z b) (nmap z c)
+
+makeLenses ''Nest
+
+fooNVx :: forall t m e. (MonadWidget t m)
+      => Proxy t -> Proxy m -> ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
+fooNVx _ _ _ (Wrap mt) =
+  Success . Wrap . Identity . join $ mt
+
+fooNWx :: (MonadWidget t m, HasErrorMessage e)
+      => Text
+      -> ValidationWidget t m e (Wrap (Maybe Text))
+fooNWx l =
+  textWidget (TextWidgetConfig (Just l) UpdateOnChange)
+
+fooNFx :: forall t m e f. (MonadWidget t m, HasErrorMessage e)
+      => (forall g. Lens' (f g) (Wrap (Maybe Text) g))
+      -> Text
+      -> Text
+      -> Field t m e f (Wrap (Maybe Text))
+fooNFx o i l =
+  Field o (\p -> Id (Just p) i) (fooNVx (Proxy :: Proxy t) (Proxy :: Proxy m)) (fooNWx l)
+
+fooN1a :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest1 (Wrap (Maybe Text))
+fooN1a = fooNFx n1a "-a" "A"
+
+fooN1b :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest1 (Wrap (Maybe Text))
+fooN1b = fooNFx n1b "-b" "B"
+
+fooN1c :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest1 (Wrap (Maybe Text))
+fooN1c = fooNFx n1c "-c" "C"
+
+fooN2d :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest2 (Wrap (Maybe Text))
+fooN2d = fooNFx n2d "-d" "D"
+
+fooN2e :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest2 (Wrap (Maybe Text))
+fooN2e = fooNFx n2e "-e" "E"
+
+fooN2f :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest2 (Wrap (Maybe Text))
+fooN2f = fooNFx n2f "-f" "F"
+
+fooN3g :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest3 (Wrap (Maybe Text))
+fooN3g = fooNFx n3g "-g" "G"
+
+fooN3h :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest3 (Wrap (Maybe Text))
+fooN3h = fooNFx n3h "-h" "H"
+
+fooN3i :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest3 (Wrap (Maybe Text))
+fooN3i = fooNFx n3i "-i" "I"
+
+fooN1V :: forall t m e. (MonadWidget t m, HasErrorMessage e)
+       => Proxy t
+       -> Proxy m
+       -> ValidationFn e Nest1 Nest1
+fooN1V _ _ i v =
+  Nest1 <$>
+    fieldValidation (fooN1a @t @m) i v <*>
+    fieldValidation (fooN1b @t @m) i v <*>
+    fieldValidation (fooN1c @t @m) i v
+
+fooN1W :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+       => ValidationWidget t m e Nest1
+fooN1W = workflowWidget [ WorkflowStep "W1" fooN1a
+                        , WorkflowStep "W2" fooN1b
+                        , WorkflowStep "W3" fooN1c
+                        ] workflowWidgetConfig
+
+fooN1F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+      => Field t m e Nest Nest1
+fooN1F =
+  Field n1 (\i -> Id (Just i) "-1") (fooN1V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN1W
+
+fooN2V :: forall t m e. (MonadWidget t m, HasErrorMessage e)
+       => Proxy t
+       -> Proxy m
+       -> ValidationFn e Nest2 Nest2
+fooN2V _ _ i v =
+  Nest2 <$>
+    fieldValidation (fooN2d @t @m) i v <*>
+    fieldValidation (fooN2e @t @m) i v <*>
+    fieldValidation (fooN2f @t @m) i v
+
+fooN2W :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+       => ValidationWidget t m e Nest2
+fooN2W = workflowWidget [ WorkflowStep "W4" fooN2d
+                        , WorkflowStep "W5" fooN2e
+                        , WorkflowStep "W6" fooN2f
+                        ] workflowWidgetConfig
+
+fooN2F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+      => Field t m e Nest Nest2
+fooN2F =
+  Field n2 (\i -> Id (Just i) "-2") (fooN2V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN2W
+
+fooN3V :: forall t m e. (MonadWidget t m, HasErrorMessage e)
+       => Proxy t
+       -> Proxy m
+       -> ValidationFn e Nest3 Nest3
+fooN3V _ _ i v =
+  Nest3 <$>
+    fieldValidation (fooN3g @t @m) i v <*>
+    fieldValidation (fooN3h @t @m) i v <*>
+    fieldValidation (fooN3i @t @m) i v
+
+fooN3W :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+       => ValidationWidget t m e Nest3
+fooN3W = workflowWidget [ WorkflowStep "W7" fooN3g
+                        , WorkflowStep "W8" fooN3h
+                        , WorkflowStep "W9" fooN3i
+                        ] workflowWidgetConfig
+
+fooN3F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+      => Field t m e Nest Nest3
+fooN3F =
+  Field n3 (\i -> Id (Just i) "-3") (fooN3V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN3W
+
+fooNV :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+      => Proxy t
+      -> Proxy m
+      -> ValidationFn e Nest Nest
+fooNV _ _ i v =
+  Nest <$>
+    fieldValidation (fooN1F @t @m) i v <*>
+    fieldValidation (fooN2F @t @m) i v <*>
+    fieldValidation (fooN3F @t @m) i v
+
+fooNW :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+       => ValidationWidget t m e Nest
+fooNW = workflowWidget [ WorkflowStep "WA" fooN1F
+                        , WorkflowStep "WB" fooN2F
+                        , WorkflowStep "WC" fooN3F
+                        ] workflowWidgetConfig
+
+fooNF :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+      => Field t m e Nest Nest
+fooNF =
+  Field id (\i -> Id (Just i) "-n") (fooNV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooNW
 
 data Bar = A | B | C deriving (Eq, Ord, Show, Read)
 
