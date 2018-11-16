@@ -58,39 +58,55 @@ workflowHeader sn wix labels =
       d <- bootstrapDropdown wix (pure . Map.fromList . zip [0..] $ labels) def
       pure $ d ^. dropdown_change
 
-workflowFooter :: MonadWidget t m
-               => StepNavigation
-               -> Int
-               -> Int
-               -> m (Event t Int)
-workflowFooter sn wix l =
+workflowFooterBack :: MonadWidget t m
+                   => StepNavigation
+                   -> Int
+                   -> m (Event t Int)
+workflowFooterBack sn wix =
   let
     isFirst = wix == 0
-    isLast = wix == (l - 1)
   in
     if sn /= DropdownNavigation
     then do
       eBack' <- divClass "col" . buttonClass "Back" . ("btn" <>) $ bool "" " disabled" isFirst
-      eNext' <- divClass "col" . buttonClass "Next" . ("btn" <>) $ bool "" " disabled" isLast
       let
         eBack = if isFirst then never else eBack'
+      pure $ (wix - 1) <$ eBack
+    else
+      pure never
+
+workflowFooterNext :: MonadWidget t m
+                   => StepNavigation
+                   -> Int
+                   -> Int
+                   -> m (Event t Int)
+workflowFooterNext sn wix l =
+  let
+    isLast = wix == (l - 1)
+  in
+    if sn /= DropdownNavigation
+    then do
+      eNext' <- divClass "col" . buttonClass "Next" . ("btn" <>) $ bool "" " disabled" isLast
+      let
         eNext = if isLast then never else eNext'
-      pure . leftmost $ [(wix - 1) <$ eBack, (wix + 1) <$ eNext]
+      pure $ (wix + 1) <$ eNext
     else
       pure never
 
 workflowTemplate :: MonadWidget t m
                  => StepNavigation
                  -> Int
-                 -> Int
                  -> [Text]
                  -> m (ValidationWidgetOutput t e f)
                  -> m (Event t Int, ValidationWidgetOutput t e f)
-workflowTemplate sn wix l labels w =
+workflowTemplate sn wix labels w =
   divClass "container" $ do
     eIxDropdown <- divClass "row" $ workflowHeader sn wix labels
     eChange <- divClass "row" . divClass "col" $ w
-    eIxButtons <- divClass "row" $ workflowFooter sn wix l
+    eIxButtons <- divClass "row" $ do
+      eBack <- workflowFooterBack sn wix
+      eNext <- workflowFooterNext sn wix (length labels)
+      pure . leftmost $ [eBack, eNext]
     let
       eIx = leftmost [eIxDropdown, eIxButtons]
 

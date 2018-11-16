@@ -61,7 +61,6 @@ data WorkflowWidgetConfig t m e f =
     _wwcBackRequirement :: StepRequirement
   , _wwcNextRequirement :: StepRequirement
   , _wwcTemplate :: Int
-                 -> Int
                  -> [Text]
                  -> m (ValidationWidgetOutput t e f)
                  -> m (Event t Int, ValidationWidgetOutput t e f)
@@ -111,7 +110,6 @@ workflowWidget [] _ _ _ _ =
 workflowWidget steps wwc i dv des =
   let
     labels = fmap stepLabel steps
-    l = length steps
     w wix iv =
       let
       in case atMay steps wix of
@@ -119,7 +117,7 @@ workflowWidget steps wwc i dv des =
           text "Indexing error"
           pure (mempty, never)
         Just (WorkflowStep _ f@(Field fl _ _ _)) -> Workflow $ mdo
-          (eIx, ValidationWidgetOutput dFailure eChange) <- (wwc ^. wwcTemplate) wix l labels $
+          (eIx, ValidationWidgetOutput dFailure eChange) <- (wwc ^. wwcTemplate) wix labels $
             fieldWidget f i dv des
 
           let
