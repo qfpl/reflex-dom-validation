@@ -93,6 +93,7 @@ workflowTemplate sn wix l labels w =
     eIxButtons <- divClass "row" $ workflowFooter sn wix l
     let
       eIx = leftmost [eIxDropdown, eIxButtons]
+
     pure (eIx, eChange)
 
 workflowWidgetConfig :: MonadWidget t m

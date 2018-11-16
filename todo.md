@@ -1,10 +1,10 @@
 
 
-- if validation is required to move forward, we need to validate everything
-  between the current index and the new index, and stop at the first one that fails to validate
-
 - the ability to separate out the workflow controls from the workflow forms
   - so we can have multiple dropdowns in a row for nested workflows
+
+- if validation is required to move forward, we need to validate everything
+  between the current index and the new index, and stop at the first one that fails to validate
 
 - add the ability for custom attributes for all of the bootstrap widgets
 - look at adding setValue so we can work with reflex-dom-storage

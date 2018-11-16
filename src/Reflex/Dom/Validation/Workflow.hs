@@ -77,25 +77,29 @@ foldValidation (e:es) _ = Left (e NE.:| es)
 class HasBadWorkflowIndex e where
   _BadWorkflowIndex :: Prism' e Int
 
-validateBetween :: (NFunctor f, HasBadWorkflowIndex e)
-                => [WorkflowStep t m e f]
-                -> Id
-                -> Int
-                -> [WithId e]
-                -> f Maybe
-                -> Int
-                -> (Int, Either (NE.NonEmpty (WithId e)) (f Maybe))
-validateBetween steps i ixStart es v ixStop =
-  case atMay steps ixStart of
-    Nothing ->
-      (ixStart, Left $ (WithId i $ _BadWorkflowIndex # ixStart) NE.:| es)
-    Just (WorkflowStep _ f@(Field fl _ _ _)) ->
-      case fmap (flip (set fl) v . nmap (Just . runIdentity)) . foldValidation es . toEither . fieldValidation f i $ v of
-        Left e -> (ixStart, Left e)
-        Right v' -> case compare ixStart ixStop of
-          EQ -> (ixStart, Right v')
-          LT -> validateBetween steps i (ixStart + 1) es v' ixStop
-          GT -> validateBetween steps i (ixStart - 1) es v' ixStop
+-- validateBetween :: (NFunctor f, HasBadWorkflowIndex e)
+--                 => [WorkflowStep t m e f]
+--                 -> Id
+--                 -> Int
+--                 -> [WithId e]
+--                 -> f Maybe
+--                 -> Int
+--                 -> (Int, Either (NE.NonEmpty (WithId e)) (f Maybe))
+-- validateBetween steps i ixStart (e:es) v ixStop =
+--   (ixStart, Left $ e NE.:| es)
+-- validateBetween steps i ixStart [] v ixStop =
+--   case atMay steps ixStart of
+--     Nothing ->
+--       (ixStart, Left $ (WithId i $ _BadWorkflowIndex # ixStart) NE.:| [])
+--     Just (WorkflowStep _ f@(Field fl _ _ _)) ->
+--       case compare ixStart ixStop of
+--           EQ -> (ixStart, Right v)
+--           LT -> case fmap (flip (set fl) v . nmap (Just . runIdentity)) . toEither . fieldValidation f i $ v of
+--             Left e -> (ixStart, Left e)
+--             Right v' -> validateBetween steps i (ixStart + 1) [] v' ixStop
+--           GT -> case fmap (flip (set fl) v . nmap (Just . runIdentity)) . toEither . fieldValidation f i $ v of
+--             Left e -> (ixStart, Left e)
+--             Right v' -> validateBetween steps i (ixStart - 1) [] v' ixStop
 
 workflowWidget :: forall t m e f.
                   (MonadWidget t m, Eq e, HasBadWorkflowIndex e, NFunctor f)
@@ -117,6 +121,7 @@ workflowWidget steps wwc i dv des =
         Just (WorkflowStep _ f@(Field fl _ _ _)) -> Workflow $ mdo
           (eIx, ValidationWidgetOutput dFailure eChange) <- (wwc ^. wwcTemplate) wix l labels $
             fieldWidget f i dv des
+
           let
             eBack = ffilter (< wix) eIx
             eNext = ffilter (> wix) eIx
@@ -144,6 +149,17 @@ workflowWidget steps wwc i dv des =
                 -- (eF, eIS) = fanEither $ validateBetween steps i wix <$> current dFailure <*> current dv' <@> e
               in
                 (eF, (\v (i, s) -> (i, set fl (nmap (Just . runIdentity) s) v)) <$> current dv' <@> eIS)
+
+            -- checkValidation e =
+            --   let
+            --     eEIS = validateBetween steps i wix <$> current dFailure <*> current dv' <@> e
+            --     fes v (i, Left e) = (Just e, (i, v))
+            --     fes _ (i, Right s) = (Nothing, (i, s))
+            --     eMEIS = fes <$> current dv' <@> eEIS
+            --     eME = fmapMaybe fst eMEIS
+            --     eIS = fmap snd eMEIS
+            --   in
+            --     (eME, eIS)
 
             (eBackE, eBackW) = case wwc ^. wwcBackRequirement of
               ValidateStep -> checkValidation eBack

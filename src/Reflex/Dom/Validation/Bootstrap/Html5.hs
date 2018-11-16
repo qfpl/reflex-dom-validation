@@ -54,5 +54,8 @@ validWidget vwc i dv des = divClass "form-group" $ do
     , [] <$ eSuccess
     ]
 
+  let
+    eChange = Endo . const . Wrap <$> leftmost [Just <$> eSuccess, Nothing <$ eFailure]
+
   errorsForId i des
-  pure $ ValidationWidgetOutput dFailure (Endo . const . Wrap . Just <$> eSuccess)
+  pure $ ValidationWidgetOutput dFailure eChange
