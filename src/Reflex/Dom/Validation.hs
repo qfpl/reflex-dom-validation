@@ -92,8 +92,8 @@ newtype Wrap a f = Wrap {unWrap :: f a }
 
 makeWrapped ''Wrap
 
-instance ToJSON a => ToJSON (Wrap a Maybe) where
-instance FromJSON a => FromJSON (Wrap a Maybe) where
+instance ToJSON (f a) => ToJSON (Wrap a f) where
+instance FromJSON (f a) => FromJSON (Wrap a f) where
 
 instance NFunctor (Wrap a) where
   nmap f (Wrap g) = Wrap (f g)
