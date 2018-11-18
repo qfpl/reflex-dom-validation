@@ -1,7 +1,7 @@
 {
   "url": "git@github.com:reflex-frp/reflex-platform.git",
-  "rev": "a721a268120908c9902a8b20509e6983b7088161",
-  "date": "2018-11-02T12:35:08-04:00",
-  "sha256": "1w3ka16qsxkilvhvn7vdywhnhaybv6z587rmjbbqz0qmd9rlk8yc",
+  "rev": "c7221496dfbd8a296eee98bb9c30f81a5022cdf4",
+  "date": "2018-11-16T15:02:40-05:00",
+  "sha256": "0s2knl17hkcig3gp2b5drpr822rlx7bpdni28maykkb4i3fykpag",
   "fetchSubmodules": false
 }
