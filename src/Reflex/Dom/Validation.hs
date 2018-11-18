@@ -26,13 +26,14 @@ module Reflex.Dom.Validation where
 
 import Control.Monad (void, join)
 import Data.Bool (bool)
+import Data.Functor.Classes
 import Data.Functor.Compose (Compose(..))
 import Data.List (nub)
 import Data.Semigroup (Semigroup(..))
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Endo(..))
 import Data.Proxy (Proxy(..))
-import GHC.Generics (Generic)
+import GHC.Generics (Generic, Generic1)
 
 import Control.Monad.Trans (liftIO)
 
@@ -41,7 +42,7 @@ import Control.Lens
 import Reflex.Dom.Core
 
 import Data.Validation
-import Data.Aeson (ToJSON, FromJSON)
+import Data.Aeson (ToJSON, FromJSON, ToJSON1, FromJSON1)
 
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
