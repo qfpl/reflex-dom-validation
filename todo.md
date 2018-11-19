@@ -1,4 +1,8 @@
 
+- check that things work with storage
+
+- check the ability to store lists of Foo (Last a) so that we can look at the history of changes over time
+  - possibly have a save button, or link this to the validation button / steps?
 
 - the ability to separate out the workflow controls from the workflow forms
   - so we can have multiple dropdowns in a row for nested workflows

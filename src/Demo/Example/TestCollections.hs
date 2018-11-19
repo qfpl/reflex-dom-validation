@@ -11,6 +11,7 @@ Portability : non-portable
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Demo.Example.TestCollections (
     HasCollectionTooSmall(..)
   , AsTestCollections(..)
@@ -22,10 +23,14 @@ import Data.Functor.Compose(Compose(..))
 import Data.Semigroup (Semigroup(..))
 import Data.Proxy (Proxy(..))
 
+import GHC.Generics (Generic)
+
 import Data.Map (Map)
 import qualified Data.Text as Text
 
 import Control.Lens
+
+import Data.Aeson (ToJSON, FromJSON, ToJSON1, FromJSON1)
 
 import Data.Validation
 
@@ -47,12 +52,22 @@ data TestCollections f =
     _tcCompletedWithReason :: CompletedWithReason f
   , _tcTodoItems :: Map Int (TodoItem f)
   , _tcFoo :: Foo f
-  }
+  } deriving (Eq, Ord, Show, Read, Generic)
 
-makeLenses ''TestCollections
+instance Semigroup1 f => Semigroup (TestCollections f) where
+  TestCollections c1 t1 f1 <> TestCollections c2 t2 f2 = TestCollections (c1 <> c2) (t1 <> t2) (f1 <> f2)
+
+instance Monoid1 f => Monoid (TestCollections f) where
+  mempty = TestCollections mempty mempty mempty
+  mappend = (<>)
+
+instance ToJSON1 f => ToJSON (TestCollections f) where
+instance FromJSON1 f => FromJSON (TestCollections f) where
 
 instance NFunctor TestCollections where
   nmap g (TestCollections cr ti f) = TestCollections (nmap g cr) (fmap (nmap g) ti) (nmap g f)
+
+makeLenses ''TestCollections
 
 instance AsCompletedWithReason TestCollections where
   completedWithReason = tcCompletedWithReason

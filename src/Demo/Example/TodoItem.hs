@@ -9,6 +9,7 @@ Portability : non-portable
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Demo.Example.TodoItem (
     TodoItem(..)
@@ -20,7 +21,11 @@ import Data.Monoid (Endo(..))
 import Data.Semigroup (Semigroup(..))
 import Data.Proxy (Proxy(..))
 
+import GHC.Generics (Generic)
+
 import Control.Lens
+
+import Data.Aeson (ToJSON, FromJSON, ToJSON1, FromJSON1)
 
 import Data.Text (Text)
 
@@ -36,12 +41,22 @@ data TodoItem f =
   TodoItem {
     _tiComplete :: Wrap Bool f
   , _tiItem :: Wrap Text f
-  }
+  } deriving (Eq, Ord, Show, Read, Generic)
 
-makeLenses ''TodoItem
+instance Semigroup1 f => Semigroup (TodoItem f) where
+  TodoItem c1 i1 <> TodoItem c2 i2 = TodoItem (c1 <> c2) (i1 <> i2)
+
+instance Monoid1 f => Monoid (TodoItem f) where
+  mempty = TodoItem mempty mempty
+  mappend = (<>)
+
+instance ToJSON1 f => ToJSON (TodoItem f) where
+instance FromJSON1 f => FromJSON (TodoItem f) where
 
 instance NFunctor TodoItem where
   nmap f (TodoItem c i) = TodoItem (nmap f c) (nmap f i)
+
+makeLenses ''TodoItem
 
 toggleV :: ValidationFn e (Wrap Bool) (Wrap Bool)
 toggleV i mv =

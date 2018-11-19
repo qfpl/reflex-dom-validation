@@ -25,6 +25,7 @@ Portability : non-portable
 module Reflex.Dom.Validation where
 
 import Control.Monad (void, join)
+import Data.Bifunctor (first)
 import Data.Bool (bool)
 import Data.Functor.Classes
 import Data.Functor.Compose (Compose(..))
@@ -42,7 +43,7 @@ import Control.Lens
 import Reflex.Dom.Core
 
 import Data.Validation
-import Data.Aeson (ToJSON, FromJSON, ToJSON1, FromJSON1)
+import Data.Aeson (ToJSON(..), FromJSON(..), ToJSON1(..), FromJSON1(..))
 
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
@@ -89,12 +90,42 @@ class HasErrorMessage e where
   errorMessage :: e -> Text
 
 newtype Wrap a f = Wrap {unWrap :: f a }
-  deriving (Eq, Ord, Show, Read, Generic, Semigroup, Monoid)
+  deriving (Generic)
 
 makeWrapped ''Wrap
 
-instance ToJSON (f a) => ToJSON (Wrap a f) where
-instance FromJSON (f a) => FromJSON (Wrap a f) where
+instance (Eq1 f, Eq a) => Eq (Wrap a f) where
+  Wrap x == Wrap y = liftEq (==) x y
+
+instance (Ord1 f, Ord a) => Ord (Wrap a f) where
+  compare (Wrap x) (Wrap y) = liftCompare compare x y
+
+instance (Show1 f, Show a) => Show (Wrap a f) where
+  showsPrec n (Wrap x) = liftShowsPrec showsPrec showList n x
+
+instance (Read1 f, Read a) => Read (Wrap a f) where
+  readsPrec = fmap (fmap (first Wrap)) <$> liftReadsPrec readsPrec readList
+
+instance (ToJSON1 f, ToJSON a) => ToJSON (Wrap a f) where
+  toJSON (Wrap x) = liftToJSON toJSON toJSONList x
+
+instance (FromJSON1 f, FromJSON a) => FromJSON (Wrap a f) where
+  parseJSON = fmap Wrap <$> liftParseJSON parseJSON parseJSONList
+
+class Semigroup1 f where
+  sappend1 :: f a -> f a -> f a
+
+class Semigroup1 f => Monoid1 f where
+  mempty1 :: f a
+  mappend1 :: f a -> f a -> f a
+  mappend1 = sappend1
+
+instance Semigroup1 f => Semigroup (Wrap a f) where
+  Wrap x <> Wrap y = Wrap (sappend1 x y)
+
+instance Monoid1 f => Monoid (Wrap a f) where
+  mempty = Wrap mempty1
+  mappend = (<>)
 
 instance NFunctor (Wrap a) where
   nmap f (Wrap g) = Wrap (f g)

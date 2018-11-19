@@ -12,6 +12,7 @@ Portability : non-portable
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Demo.Example.Workflow where
 
@@ -19,15 +20,20 @@ import Control.Monad (join)
 import Data.Char (isDigit, isLower, isUpper)
 import Data.Bool (bool)
 import Data.Foldable
+import Data.Functor.Classes
 import Data.Monoid (Endo(..))
 import Data.Proxy (Proxy(..))
 import Text.Read (readMaybe)
+
+import GHC.Generics (Generic)
 
 import Control.Lens
 import Control.Error
 
 import Data.Time.Calendar
 import Data.Colour
+
+import Data.Aeson (ToJSON, FromJSON, ToJSON1, FromJSON1)
 
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -56,12 +62,17 @@ data Nest1 f =
     _n1a :: Wrap (Maybe Text) f
   , _n1b :: Wrap (Maybe Text) f
   , _n1c :: Wrap (Maybe Text) f
-  }
+  } deriving (Eq, Ord, Show, Read, Generic)
 
-deriving instance (Eq (f (Maybe Text))) => Eq (Nest1 f)
-deriving instance (Ord (f (Maybe Text))) => Ord (Nest1 f)
-deriving instance (Show (f (Maybe Text))) => Show (Nest1 f)
-deriving instance (Read (f (Maybe Text))) => Read (Nest1 f)
+instance Semigroup1 f => Semigroup (Nest1 f) where
+  Nest1 a1 b1 c1 <> Nest1 a2 b2 c2 = Nest1 (a1 <> a2) (b1 <> b2) (c1 <> c2)
+
+instance Monoid1 f => Monoid (Nest1 f) where
+  mempty = Nest1 mempty mempty mempty
+  mappend = (<>)
+
+instance ToJSON1 f => ToJSON (Nest1 f) where
+instance FromJSON1 f => FromJSON (Nest1 f) where
 
 instance NFunctor Nest1 where
   nmap z (Nest1 a b c) = Nest1 (nmap z a) (nmap z b) (nmap z c)
@@ -73,12 +84,17 @@ data Nest2 f =
     _n2d :: Wrap (Maybe Text) f
   , _n2e :: Wrap (Maybe Text) f
   , _n2f :: Wrap (Maybe Text) f
-  }
+  } deriving (Eq, Ord, Show, Read, Generic)
 
-deriving instance (Eq (f (Maybe Text))) => Eq (Nest2 f)
-deriving instance (Ord (f (Maybe Text))) => Ord (Nest2 f)
-deriving instance (Show (f (Maybe Text))) => Show (Nest2 f)
-deriving instance (Read (f (Maybe Text))) => Read (Nest2 f)
+instance Semigroup1 f => Semigroup (Nest2 f) where
+  Nest2 a1 b1 c1 <> Nest2 a2 b2 c2 = Nest2 (a1 <> a2) (b1 <> b2) (c1 <> c2)
+
+instance Monoid1 f => Monoid (Nest2 f) where
+  mempty = Nest2 mempty mempty mempty
+  mappend = (<>)
+
+instance ToJSON1 f => ToJSON (Nest2 f) where
+instance FromJSON1 f => FromJSON (Nest2 f) where
 
 instance NFunctor Nest2 where
   nmap z (Nest2 a b c) = Nest2 (nmap z a) (nmap z b) (nmap z c)
@@ -90,12 +106,17 @@ data Nest3 f =
     _n3g :: Wrap (Maybe Text) f
   , _n3h :: Wrap (Maybe Text) f
   , _n3i :: Wrap (Maybe Text) f
-  }
+  } deriving (Eq, Ord, Show, Read, Generic)
 
-deriving instance (Eq (f (Maybe Text))) => Eq (Nest3 f)
-deriving instance (Ord (f (Maybe Text))) => Ord (Nest3 f)
-deriving instance (Show (f (Maybe Text))) => Show (Nest3 f)
-deriving instance (Read (f (Maybe Text))) => Read (Nest3 f)
+instance Semigroup1 f => Semigroup (Nest3 f) where
+  Nest3 a1 b1 c1 <> Nest3 a2 b2 c2 = Nest3 (a1 <> a2) (b1 <> b2) (c1 <> c2)
+
+instance Monoid1 f => Monoid (Nest3 f) where
+  mempty = Nest3 mempty mempty mempty
+  mappend = (<>)
+
+instance ToJSON1 f => ToJSON (Nest3 f) where
+instance FromJSON1 f => FromJSON (Nest3 f) where
 
 instance NFunctor Nest3 where
   nmap z (Nest3 a b c) = Nest3 (nmap z a) (nmap z b) (nmap z c)
@@ -107,12 +128,17 @@ data Nest f =
     _n1 :: Nest1 f
   , _n2 :: Nest2 f
   , _n3 :: Nest3 f
-  }
+  } deriving (Eq, Ord, Show, Read, Generic)
 
-deriving instance (Eq (f (Maybe Text))) => Eq (Nest f)
-deriving instance (Ord (f (Maybe Text))) => Ord (Nest f)
-deriving instance (Show (f (Maybe Text))) => Show (Nest f)
-deriving instance (Read (f (Maybe Text))) => Read (Nest f)
+instance Semigroup1 f => Semigroup (Nest f) where
+  Nest a1 b1 c1 <> Nest a2 b2 c2 = Nest (a1 <> a2) (b1 <> b2) (c1 <> c2)
+
+instance Monoid1 f => Monoid (Nest f) where
+  mempty = Nest mempty mempty mempty
+  mappend = (<>)
+
+instance ToJSON1 f => ToJSON (Nest f) where
+instance FromJSON1 f => FromJSON (Nest f) where
 
 instance NFunctor Nest where
   nmap z (Nest a b c) = Nest (nmap z a) (nmap z b) (nmap z c)
@@ -253,19 +279,30 @@ fooNF :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflow
 fooNF =
   Field id (\i -> Id (Just i) "-n") (fooNV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooNW
 
-data Bar = A | B | C deriving (Eq, Ord, Show, Read)
+data Bar = A | B | C deriving (Eq, Ord, Show, Read, Generic)
+
+instance ToJSON Bar where
+instance FromJSON Bar where
 
 data SelectDemo f =
   SelectDemo {
     _sdOne :: Wrap Bar f
   , _sdMaybe :: Wrap (Maybe Bar) f
   -- , _sdMultiple :: Wrap (Set Bar) f
-  }
+  } deriving (Eq, Ord, Show, Read, Generic)
 
-deriving instance (Eq (f Bar), Eq (f (Maybe Bar))) => Eq (SelectDemo f)
-deriving instance (Ord (f Bar), Ord (f (Maybe Bar))) => Ord (SelectDemo f)
-deriving instance (Show (f Bar), Show (f (Maybe Bar))) => Show (SelectDemo f)
-deriving instance (Read (f Bar), Read (f (Maybe Bar))) => Read (SelectDemo f)
+instance Semigroup1 f => Semigroup (SelectDemo f) where
+  SelectDemo o1 m1 <> SelectDemo o2 m2 = SelectDemo (o1 <> o2) (m1 <> m2)
+
+instance Monoid1 f => Monoid (SelectDemo f) where
+  mempty = SelectDemo mempty mempty
+  mappend = (<>)
+
+instance ToJSON1 f => ToJSON (SelectDemo f) where
+instance FromJSON1 f => FromJSON (SelectDemo f) where
+
+instance NFunctor SelectDemo where
+  nmap f (SelectDemo o ma)  = SelectDemo (nmap f o) (nmap f ma)
 
 makeLenses ''SelectDemo
 
@@ -275,26 +312,28 @@ class AsSelectDemo g where
 instance AsSelectDemo SelectDemo where
   selectDemo = id
 
-instance NFunctor SelectDemo where
-  nmap f (SelectDemo o ma)  = SelectDemo (nmap f o) (nmap f ma)
-
 data Foo f =
   Foo {
     _fooD :: SelectDemo f
   , _fooA :: Wrap Day f
   , _fooB :: Wrap (Set Bar) f
   , _fooC :: Wrap (Maybe Text) f
-  }
+  } deriving (Eq, Ord, Show, Read, Generic)
 
-deriving instance (Eq (SelectDemo f), Eq (f Day), Eq (f (Set Bar)), Eq (f (Maybe Text))) => Eq (Foo f)
-deriving instance (Ord (SelectDemo f), Ord (f Day), Ord (f (Set Bar)), Ord (f (Maybe Text))) => Ord (Foo f)
-deriving instance (Show (SelectDemo f), Show (f Day), Show (f (Set Bar)), Show (f (Maybe Text))) => Show (Foo f)
-deriving instance (Read (SelectDemo f), Read (f Day), Read (f (Set Bar)), Read (f (Maybe Text))) => Read (Foo f)
+instance Semigroup1 f => Semigroup (Foo f) where
+  Foo d1 a1 b1 c1 <> Foo d2 a2 b2 c2 = Foo (d1 <> d2) (a1 <> a2) (b1 <> b2) (c1 <> c2)
 
-makeLenses ''Foo
+instance Monoid1 f => Monoid (Foo f) where
+  mempty = Foo mempty mempty mempty mempty
+  mappend = (<>)
+
+instance ToJSON1 f => ToJSON (Foo f) where
+instance FromJSON1 f => FromJSON (Foo f) where
 
 instance NFunctor Foo where
   nmap f (Foo d a b c) = Foo (nmap f d) (nmap f a) (nmap f b) (nmap f c)
+
+makeLenses ''Foo
 
 class AsFoo g where
   foo :: Lens' (g f) (Foo f)

@@ -12,6 +12,7 @@ Portability : non-portable
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 module Demo.Example.CompletedWithReason (
     HasReasonRequiredForIncomplete(..)
   , AsCompletedWithReason(..)
@@ -19,10 +20,14 @@ module Demo.Example.CompletedWithReason (
   , completedWithReasonF
   ) where
 
+import GHC.Generics (Generic)
+
 import Data.Semigroup(Semigroup(..))
 import Data.Proxy(Proxy(..))
 
 import Control.Lens
+
+import Data.Aeson (ToJSON, FromJSON, ToJSON1, FromJSON1)
 
 import Data.Text (Text)
 
@@ -41,17 +46,22 @@ class HasReasonRequiredForIncomplete e where
 data CompletedWithReason f = CompletedWithReason {
     _cwrCompleted :: Wrap Bool f
   , _cwrReason :: Wrap (Maybe Text) f
-  }
+  } deriving (Eq, Ord, Show, Read, Generic)
 
-deriving instance (Eq (f Bool), Eq (f (Maybe Text))) => Eq (CompletedWithReason f)
-deriving instance (Ord (f Bool), Ord (f (Maybe Text))) => Ord (CompletedWithReason f)
-deriving instance (Show (f Bool), Show (f (Maybe Text))) => Show (CompletedWithReason f)
-deriving instance (Read (f Bool), Read (f (Maybe Text))) => Read (CompletedWithReason f)
+instance Semigroup1 f => Semigroup (CompletedWithReason f) where
+  CompletedWithReason c1 r1 <> CompletedWithReason c2 r2 = CompletedWithReason (c1 <> c2) (r1 <> r2)
 
-makeLenses ''CompletedWithReason
+instance Monoid1 f => Monoid (CompletedWithReason f) where
+  mempty = CompletedWithReason mempty mempty
+  mappend = (<>)
+
+instance ToJSON1 f => ToJSON (CompletedWithReason f) where
+instance FromJSON1 f => FromJSON (CompletedWithReason f) where
 
 instance NFunctor CompletedWithReason where
   nmap f (CompletedWithReason c r) = CompletedWithReason (nmap f c) (nmap f r)
+
+makeLenses ''CompletedWithReason
 
 instance AsCompleted CompletedWithReason where
   completed = cwrCompleted
