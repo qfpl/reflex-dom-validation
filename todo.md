@@ -1,5 +1,6 @@
 
 - check that things work with storage
+  - need to go through and add support for getting more state out of the dynamic that goes into the widget fn
 
 - check the ability to store lists of Foo (Last a) so that we can look at the history of changes over time
   - possibly have a save button, or link this to the validation button / steps?

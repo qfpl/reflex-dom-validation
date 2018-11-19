@@ -5,6 +5,7 @@ Maintainer  : dave.laing.80@gmail.com
 Stability   : experimental
 Portability : non-portable
 -}
+
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -22,6 +23,7 @@ Portability : non-portable
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Reflex.Dom.Validation where
 
 import Control.Monad (void, join)
@@ -36,7 +38,7 @@ import Data.Monoid (Endo(..))
 import Data.Proxy (Proxy(..))
 import GHC.Generics (Generic, Generic1)
 
-import Control.Monad.Trans (liftIO)
+import Control.Monad.Trans (liftIO, lift)
 
 import Control.Lens
 
@@ -55,6 +57,11 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Bootstrap
+
+import Data.Dependent.Map (GCompare)
+import Reflex.Dom.Storage.Base
+import Reflex.Dom.Storage.Class
+import Data.GADT.Aeson
 
 class NFunctor f where
   nmap :: (forall x. g x -> h x) -> f g -> f h
@@ -119,6 +126,14 @@ class Semigroup1 f => Monoid1 f where
   mempty1 :: f a
   mappend1 :: f a -> f a -> f a
   mappend1 = sappend1
+
+instance Semigroup1 Maybe where
+  sappend1 Nothing x = x
+  sappend1 x Nothing = x
+  sappend1 (Just _) (Just y) = Just y
+
+instance Monoid1 Maybe where
+  mempty1 = Nothing
 
 instance Semigroup1 f => Semigroup (Wrap a f) where
   Wrap x <> Wrap y = Wrap (sappend1 x y)
@@ -207,4 +222,35 @@ wrapUp f ini v = mdo
     ]
 
   pure eSuccess
+
+wrapUpStorage :: (MonadWidget t m, Eq e, GKey k, GCompare k, ToJSONTag k Identity, FromJSONTag k Identity, NFunctor f)
+              => Field t m e f f
+              -> k (f Maybe)
+              -> f Maybe
+              -> (Dynamic t (f Maybe) -> m (Event t (f Maybe)))
+              -> m (Event t (f Identity))
+wrapUpStorage f k ini v = runStorageT LocalStorage $ do
+  initializeTag k ini
+  dTag <- askStorageTagDef k ini
+  eI <- lift $ mdo
+    let i = Id Nothing "top"
+
+    dcr <- foldDyn ($) ini . leftmost $ [fmap appEndo eFn, flip const <$> updated dTag]
+
+    ValidationWidgetOutput de eFn <- fieldWidget f i dcr $
+      (\x y -> nub $ x ++ y) <$> des <*> de
+    eV <- v dcr
+    let (eFailure, eSuccess) = fanEither $ toEither . fieldValidation f i <$> eV
+    -- TODO printing these failures would be interesting
+    des :: Dynamic t [WithId e] <- holdDyn [] . leftmost $
+      [ NonEmpty.toList <$> eFailure
+      , [] <$ eSuccess
+      ]
+
+    pure eSuccess
+
+  tellStorageInsert k $ nmap (Just . runIdentity) <$> eI
+  pure eI
+
+
 
