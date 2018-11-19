@@ -232,10 +232,12 @@ wrapUpStorage :: (MonadWidget t m, Eq e, GKey k, GCompare k, ToJSONTag k Identit
 wrapUpStorage f k ini v = runStorageT LocalStorage $ do
   initializeTag k ini
   dTag <- askStorageTagDef k ini
+  iTag <- sample . current $ dTag
+
   eI <- lift $ mdo
     let i = Id Nothing "top"
 
-    dcr <- foldDyn ($) ini . leftmost $ [fmap appEndo eFn, flip const <$> updated dTag]
+    dcr <- foldDyn ($) iTag . leftmost $ [fmap appEndo eFn, const <$> updated dTag]
 
     ValidationWidgetOutput de eFn <- fieldWidget f i dcr $
       (\x y -> nub $ x ++ y) <$> des <*> de

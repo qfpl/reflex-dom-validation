@@ -1,7 +1,4 @@
 
-- check that things work with storage
-  - need to go through and add support for getting more state out of the dynamic that goes into the widget fn
-
 - check the ability to store lists of Foo (Last a) so that we can look at the history of changes over time
   - possibly have a save button, or link this to the validation button / steps?
 
@@ -17,15 +14,18 @@
   - would dropdownView work?
 - complete HTML5 inputs
 
+- for storage, should we look at dividing the state into data-state and ui-state, if we want to be able to store the position in the UI navigation as well
 
-- need to test out the combination of this with reflex-dom-storage
-- should we look at dividing the state into data-state and ui-state, if we want to be able to
-  store the position in the UI navigation as well
-  
- 
- 
- 
-  
+
+
+
+
+
+
+
+
+
+
 
 
 
