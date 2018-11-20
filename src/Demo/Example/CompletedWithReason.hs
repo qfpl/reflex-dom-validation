@@ -73,8 +73,8 @@ completedWithReasonV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasNo
                      => Proxy t -> Proxy m -> ValidationFn e CompletedWithReason CompletedWithReason
 completedWithReasonV _ _ i cr =
   let
-    fC = completedF :: Field t m e CompletedWithReason (Wrap Bool)
-    fR = reasonF :: Field t m e CompletedWithReason (Wrap (Maybe Text))
+    fC = completedF :: Field t m e CompletedWithReason (Wrap Bool) () ()
+    fR = reasonF :: Field t m e CompletedWithReason (Wrap (Maybe Text)) () ()
     f c r =
       if unwrapV c == False && unwrapV r == Nothing
       then Failure . pure . WithId (fieldId fR i) $ _ReasonRequiredForIncomplete # ()
@@ -85,10 +85,10 @@ completedWithReasonV _ _ i cr =
     f c r
 
 completedWithReasonW :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
-                     => ValidationWidget t m e CompletedWithReason
-completedWithReasonW i dv de = do
-  eC <- fieldWidget completedF i dv de
-  eR <- fieldWidget reasonF i dv de
+                     => ValidationWidget t m e CompletedWithReason u
+completedWithReasonW i dv du  de = do
+  eC <- fieldWidget completedF i dv du de
+  eR <- fieldWidget reasonF i dv du de
   pure $ eC <> eR
 
   -- let
@@ -110,7 +110,7 @@ class AsCompletedWithReason f where
 instance AsCompletedWithReason CompletedWithReason where
   completedWithReason = id
 
-completedWithReasonF :: forall t m e f. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, HasReasonRequiredForIncomplete e, AsCompletedWithReason f)
-                     => Field t m e f CompletedWithReason
+completedWithReasonF :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, HasReasonRequiredForIncomplete e, AsCompletedWithReason f)
+                     => Field t m e f CompletedWithReason u ()
 completedWithReasonF =
-  Field completedWithReason (\i -> Id (Just i) "-cwr") (completedWithReasonV (Proxy :: Proxy t) (Proxy :: Proxy m)) completedWithReasonW
+  Field completedWithReason united (\i -> Id (Just i) "-cwr") (completedWithReasonV (Proxy :: Proxy t) (Proxy :: Proxy m)) completedWithReasonW

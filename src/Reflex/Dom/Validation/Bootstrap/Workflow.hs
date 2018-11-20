@@ -9,8 +9,7 @@ Portability : non-portable
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Reflex.Dom.Validation.Bootstrap.Workflow (
-    workflowTemplate
-  , workflowWidgetConfig
+    workflowWidgetConfig
   , StepNavigation(..)
   , _ButtonNavigation
   , _DropdownNavigation
@@ -48,14 +47,17 @@ workflowHeader :: MonadWidget t m
                => StepNavigation
                -> Int
                -> [Text]
+               -> m a
                -> m (Event t Int)
-workflowHeader sn wix labels = divClass "col" $
+workflowHeader sn wix labels m = divClass "col" $
   case sn of
     ButtonNavigation -> do
       el "label" . text . fromMaybe "" $ atMay labels wix
+      _ <- m
       pure never
     _ -> do
       d <- bootstrapDropdown wix (pure . Map.fromList . zip [0..] $ labels) def
+      _ <- m
       pure $ d ^. dropdown_change
 
 workflowFooterBack :: MonadWidget t m
@@ -93,26 +95,36 @@ workflowFooterNext sn wix l =
     else
       pure never
 
-workflowTemplate :: MonadWidget t m
-                 => StepNavigation
-                 -> Int
-                 -> [Text]
-                 -> m (ValidationWidgetOutput t e f)
-                 -> m (Event t Int, ValidationWidgetOutput t e f)
-workflowTemplate sn wix labels w =
-  divClass "container" $ do
-    eIxDropdown <- divClass "row" $ workflowHeader sn wix labels
-    eChange <- divClass "row" . divClass "col" $ w
-    eIxButtons <- divClass "row" $ do
-      eBack <- workflowFooterBack sn wix
-      eNext <- workflowFooterNext sn wix (length labels)
-      pure . leftmost $ [eBack, eNext]
-    let
-      eIx = leftmost [eIxDropdown, eIxButtons]
+workflowFooter :: MonadWidget t m
+                   => StepNavigation
+                   -> Int
+                   -> [Text]
+                   -> m a
+                   -> m (Event t Int)
+workflowFooter sn wix labels m = do
+  eBack <- workflowFooterBack sn wix
+  _ <- m
+  eNext <- workflowFooterNext sn wix (length labels)
+  pure . leftmost $ [eBack, eNext]
 
-    pure (eIx, eChange)
+workflowCombine :: MonadWidget t m
+                => m (Event t Int)
+                -> m (ValidationWidgetOutput t e f u)
+                -> m (Event t Int)
+                -> m (Event t Int, ValidationWidgetOutput t e f u)
+workflowCombine h m f =
+  divClass "container" $ do
+    eH <- divClass "row" h
+    e <- divClass "row" . divClass "col" $ m
+    eF <- divClass "row" f
+    pure (leftmost [eH, eF], e)
 
 workflowWidgetConfig :: MonadWidget t m
-                     => WorkflowWidgetConfig t m e f
+                     => WorkflowWidgetConfig t m e
 workflowWidgetConfig =
-  WorkflowWidgetConfig SaveStep ValidateStep (workflowTemplate ButtonAndDropdownNavigation)
+  WorkflowWidgetConfig
+    SaveStep
+    ValidateStep
+    (workflowHeader ButtonAndDropdownNavigation)
+    (workflowFooter ButtonAndDropdownNavigation)
+    workflowCombine

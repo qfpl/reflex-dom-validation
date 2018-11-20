@@ -148,48 +148,54 @@ instance NFunctor (Wrap a) where
 type ValidationFn e f f' =
   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
 
-data ValidationWidgetOutput t e f =
+data ValidationWidgetOutput t e f u =
   ValidationWidgetOutput {
     _vwoFailures :: Dynamic t [WithId e]
   , _vwoSuccesses :: Event t (Endo (f Maybe))
+  , _vwoUI :: Event t (Endo u)
   }
 
 makeLenses ''ValidationWidgetOutput
 
-instance Reflex t => Semigroup (ValidationWidgetOutput t e f) where
-  ValidationWidgetOutput f1 s1 <> ValidationWidgetOutput f2 s2 =
-    ValidationWidgetOutput (f1 <> f2) (s1 <> s2)
+instance Reflex t => Semigroup (ValidationWidgetOutput t e f u) where
+  ValidationWidgetOutput f1 s1 u1 <> ValidationWidgetOutput f2 s2 u2 =
+    ValidationWidgetOutput (f1 <> f2) (s1 <> s2) (u1 <> u2)
 
-instance Reflex t => Monoid (ValidationWidgetOutput t e f) where
-  mempty = ValidationWidgetOutput mempty mempty
+instance Reflex t => Monoid (ValidationWidgetOutput t e f u) where
+  mempty = ValidationWidgetOutput mempty mempty mempty
   mappend = (<>)
 
 -- TODO change ValidationWidget return type
 
-type ValidationWidget t m e f =
-  Id -> Dynamic t (f Maybe) -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f)
+type ValidationWidget t m e f u =
+  Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)
 
-data Field t m e f f' where
+data Field t m e f f' u u' where
   Field :: NFunctor f'
         => (forall g. Functor g => Lens' (f g) (f' g))
+        -> Lens' u u'
         -> (Id -> Id)
         -> ValidationFn e f' f'
-        -> ValidationWidget t m e f'
-        -> Field t m e f f'
+        -> ValidationWidget t m e f' u'
+        -> Field t m e f f' u u'
 
-fieldId :: Field t m e f f' -> Id -> Id
-fieldId (Field _ fi _ _) i = fi i
+fieldId :: Field t m e f f' u u' -> Id -> Id
+fieldId (Field _ _ fi _ _) i = fi i
 
-fieldValidation :: Field t m e f f' -> ValidationFn e f f'
-fieldValidation f@(Field l fi v _) i mf
+fieldValidation' :: (forall g. Lens' (f g) (f' g)) -> (Id -> Id) -> ValidationFn e f' f' -> ValidationFn e f f'
+fieldValidation' l fi v i mf =
+  v (fi i) (view l mf)
+
+fieldValidation :: Field t m e f f' u u' -> ValidationFn e f f'
+fieldValidation f@(Field l _ fi v _) i mf
   = v (fi i) (view l mf)
 
-fieldWidget :: MonadWidget t m => Field t m e f f' -> ValidationWidget t m e f
-fieldWidget f@(Field l fi _ w) i dv de = do
+fieldWidget :: MonadWidget t m => Field t m e f f' u u' -> ValidationWidget t m e f u
+fieldWidget f@(Field l lu fi _ w) i dv du de = do
   let
     i' = fi i
-  ValidationWidgetOutput d e' <- w i' (view l <$> dv) $ filter (matchOrDescendant i' . view wiId) <$> de
-  pure . ValidationWidgetOutput d $ Endo . over l . appEndo <$> e'
+  ValidationWidgetOutput d e' u' <- w i' (view l <$> dv) (view lu <$> du) $ filter (matchOrDescendant i' . view wiId) <$> de
+  pure $ ValidationWidgetOutput d (Endo . over l . appEndo <$> e') (Endo . over lu . appEndo <$> u')
 
 unwrapV :: Wrap a Identity -> a
 unwrapV = runIdentity . unWrap
@@ -203,15 +209,17 @@ class HasNotSpecified e where
 
 -- this puts a potential validation button at the bottom, which might not be what we want in all cases
 wrapUp :: (MonadWidget t m, Eq e)
-       => Field t m e f f
+       => Field t m e f f u u
        -> f Maybe
+       -> u
        -> (Dynamic t (f Maybe) -> m (Event t (f Maybe)))
        -> m (Event t (f Identity))
-wrapUp f ini v = mdo
+wrapUp f ini iniU v = mdo
   let i = Id Nothing "top"
 
   dcr <- foldDyn ($) ini $ fmap appEndo eFn
-  ValidationWidgetOutput de eFn <- fieldWidget f i dcr $
+  du <- foldDyn ($) iniU $ fmap appEndo eU
+  ValidationWidgetOutput de eFn eU <- fieldWidget f i dcr du $
     (\x y -> nub $ x ++ y) <$> des <*> de
   eV <- v dcr
   let (eFailure, eSuccess) = fanEither $ toEither . fieldValidation f i <$> eV
@@ -224,22 +232,29 @@ wrapUp f ini v = mdo
   pure eSuccess
 
 wrapUpStorage :: (MonadWidget t m, Eq e, GKey k, GCompare k, ToJSONTag k Identity, FromJSONTag k Identity, NFunctor f)
-              => Field t m e f f
+              => Field t m e f f u u
               -> k (f Maybe)
               -> f Maybe
+              -> k u
+              -> u
               -> (Dynamic t (f Maybe) -> m (Event t (f Maybe)))
               -> m (Event t (f Identity))
-wrapUpStorage f k ini v = runStorageT LocalStorage $ do
+wrapUpStorage f k ini kU iniU v = runStorageT LocalStorage $ do
   initializeTag k ini
   dTag <- askStorageTagDef k ini
   iTag <- sample . current $ dTag
 
-  eI <- lift $ mdo
+  initializeTag kU iniU
+  duTag <- askStorageTagDef kU iniU
+  iuTag <- sample . current $ duTag
+
+  (eM, eI, eU) <- lift $ mdo
     let i = Id Nothing "top"
 
     dcr <- foldDyn ($) iTag . leftmost $ [fmap appEndo eFn, const <$> updated dTag]
+    dU <- foldDyn ($) iuTag . leftmost $ [fmap appEndo eU, const <$> updated duTag]
 
-    ValidationWidgetOutput de eFn <- fieldWidget f i dcr $
+    ValidationWidgetOutput de eFn eU <- fieldWidget f i dcr dU $
       (\x y -> nub $ x ++ y) <$> des <*> de
     eV <- v dcr
     let (eFailure, eSuccess) = fanEither $ toEither . fieldValidation f i <$> eV
@@ -249,9 +264,12 @@ wrapUpStorage f k ini v = runStorageT LocalStorage $ do
       , [] <$ eSuccess
       ]
 
-    pure eSuccess
+    pure (eFn, eSuccess, eU)
 
-  tellStorageInsert k $ nmap (Just . runIdentity) <$> eI
+  tellStorageInsert k $ flip appEndo <$> current dTag <@> eM
+  -- tellStorageInsert k $ nmap (Just . runIdentity) <$> eI
+  tellStorageInsert kU $ flip appEndo <$> current duTag <@> eU
+
   pure eI
 
 

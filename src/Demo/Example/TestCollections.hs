@@ -16,6 +16,8 @@ module Demo.Example.TestCollections (
     HasCollectionTooSmall(..)
   , AsTestCollections(..)
   , TestCollections(..)
+  , AsTestCollectionsU(..)
+  , TestCollectionsU(..)
   , testCollectionsF
   ) where
 
@@ -46,6 +48,19 @@ import Bootstrap
 import Demo.Example.CompletedWithReason
 import Demo.Example.TodoItem
 import Demo.Example.Workflow
+
+data TestCollectionsU =
+  TestCollectionsU {
+    _tcFooU :: FooU
+  } deriving (Eq, Ord, Show, Read, Generic)
+
+instance ToJSON TestCollectionsU where
+instance FromJSON TestCollectionsU where
+
+makeLenses ''TestCollectionsU
+
+instance AsFooU TestCollectionsU where
+  fooU = tcFooU
 
 data TestCollections f =
   TestCollections {
@@ -104,7 +119,7 @@ testCollectionsV _ _ i tc =
         (\(Compose xs) -> if length xs < 2
                 then (Failure . pure . WithId (fieldId tf i) $ _CollectionTooSmall # ())
                 else Success xs)) <*>
-     fieldValidation (fooF @t @m) i tc
+     fieldValidation (fooF @t @m @e @TestCollections @TestCollectionsU) i tc
 
 testCollectionsW :: ( MonadWidget t m
                     , Eq e
@@ -117,12 +132,12 @@ testCollectionsW :: ( MonadWidget t m
                     , HasValidityError e
                     , HasBadWorkflowIndex e
                     )
-                 => ValidationWidget t m e TestCollections
-testCollectionsW i dv de =
+                 => ValidationWidget t m e TestCollections TestCollectionsU
+testCollectionsW i dv du de =
   (\x y z -> x <> y <> z) <$>
-    fieldWidget completedWithReasonF i dv de <*>
-    fieldWidget togglesF i dv de <*>
-    fieldWidget fooF i dv de
+    fieldWidget completedWithReasonF i dv du de <*>
+    fieldWidget togglesF i dv du de <*>
+    fieldWidget fooF i dv du de
 
 class AsTestCollections f where
   testCollections :: Lens' (f g) (TestCollections g)
@@ -130,7 +145,13 @@ class AsTestCollections f where
 instance AsTestCollections TestCollections where
   testCollections = id
 
-testCollectionsF :: forall t m e f.
+class AsTestCollectionsU u where
+  testCollectionsU :: Lens' u TestCollectionsU
+
+instance AsTestCollectionsU TestCollectionsU where
+  testCollectionsU = id
+
+testCollectionsF :: forall t m e f u.
                     ( MonadWidget t m
                     , Eq e
                     , HasErrorMessage e
@@ -143,10 +164,11 @@ testCollectionsF :: forall t m e f.
                     , HasValidityError e
                     , HasBadWorkflowIndex e
                     , AsTestCollections f
+                    , AsTestCollectionsU u
                     )
-                 => Field t m e f TestCollections
+                 => Field t m e f TestCollections u TestCollectionsU
 testCollectionsF =
-  Field testCollections (\i -> Id (Just i) "-tc") (testCollectionsV (Proxy :: Proxy t) (Proxy :: Proxy m)) testCollectionsW
+  Field testCollections testCollectionsU (\i -> Id (Just i) "-tc") (testCollectionsV (Proxy :: Proxy t) (Proxy :: Proxy m)) testCollectionsW
 
 class HasCollectionTooSmall e where
   _CollectionTooSmall :: Prism' e ()
@@ -155,7 +177,7 @@ class AsTodoItems f where
   todoItems :: Lens' (f g) (Compose (Map Int) TodoItem g)
 
 -- TODO add a text field here to put things through their paces
-togglesF :: (MonadWidget t m, HasErrorMessage e, AsTodoItems f) => Field t m e f (Compose (Map Int) TodoItem)
+togglesF :: (MonadWidget t m, HasErrorMessage e, AsTodoItems f) => Field t m e f (Compose (Map Int) TodoItem) u (Map Int ())
 togglesF =
   let
     ki Nothing i = Id (Just i) "-ts"
@@ -168,4 +190,4 @@ togglesF =
     deleteMe =
       buttonClass "Remove" "btn"
   in
-    collectionF todoItems ki todoItemF addMe deleteMe
+    collectionF todoItems (lens (const mempty) const) ki todoItemF addMe deleteMe

@@ -70,8 +70,8 @@ textUpdate UpdateOnEnter d _ eK =
 
 textWidget :: (MonadWidget t m, HasErrorMessage e)
            => TextWidgetConfig
-           -> ValidationWidget t m e (Wrap (Maybe Text))
-textWidget twc i dv des = divClass "form-group" $ do
+           -> ValidationWidget t m e (Wrap (Maybe Text)) u
+textWidget twc i dv _ des = divClass "form-group" $ do
   let it = idToText i
   forM_ (twc ^. twcLabel) $
      elAttr "label" ("for" =: it) . text
@@ -90,13 +90,15 @@ textWidget twc i dv des = divClass "form-group" $ do
 
   errorsForId i des
 
-  pure . ValidationWidgetOutput (pure mempty) $
-    Endo . const . Wrap . Just . (\t -> if Text.null t then Nothing else Just t) <$> ev'
+  let
+    eChange = Endo . const . Wrap . Just . (\t -> if Text.null t then Nothing else Just t) <$> ev'
+
+  pure $ ValidationWidgetOutput (pure mempty) eChange never
 
 textAreaWidget :: (MonadWidget t m, HasErrorMessage e)
                => TextWidgetConfig
-               -> ValidationWidget t m e (Wrap (Maybe Text))
-textAreaWidget twc i dv des = divClass "form-group" $ do
+               -> ValidationWidget t m e (Wrap (Maybe Text)) u
+textAreaWidget twc i dv _ des = divClass "form-group" $ do
   let it = idToText i
   forM_ (twc ^. twcLabel) $
      elAttr "label" ("for" =: it) . text
@@ -115,5 +117,7 @@ textAreaWidget twc i dv des = divClass "form-group" $ do
 
   errorsForId i des
 
-  pure . ValidationWidgetOutput (pure mempty) $
-    Endo . const . Wrap . Just . (\t -> if Text.null t then Nothing else Just t) <$> ev'
+  let
+    eChange = Endo . const . Wrap . Just . (\t -> if Text.null t then Nothing else Just t) <$> ev'
+
+  pure $ ValidationWidgetOutput (pure mempty) eChange never

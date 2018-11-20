@@ -49,8 +49,8 @@ makeLenses ''SelectWidgetConfig
 selectWidget :: (MonadWidget t m, HasErrorMessage e, Ord c)
   => c
   -> SelectWidgetConfig c
-  -> ValidationWidget t m e (Wrap c)
-selectWidget defV swc i dv des = divClass "form-group" $ do
+  -> ValidationWidget t m e (Wrap c) u
+selectWidget defV swc i dv du des = divClass "form-group" $ do
   let
     it = idToText i
 
@@ -64,21 +64,25 @@ selectWidget defV swc i dv des = divClass "form-group" $ do
   iV <- fmap (fromMaybe defV . unWrap) . sample . current $ dv
   ePostBuild <- getPostBuild
   dd <- dropdown iV (pure m) $ def
+    -- & setValue .~ (fmap (fromMaybe defV . unWrap) . updated $ dv)
     & attributes .~ dAttrs
 
   errorsForId i des
 
+  let
+    eChange =
+      fmap (Endo . const . Wrap . Just) . leftmost $
+      [ dd ^. dropdown_change
+      , iV <$ ePostBuild
+      ]
+
   pure $
-    ValidationWidgetOutput (pure mempty) .
-    fmap (Endo . const . Wrap . Just) . leftmost $
-    [ dd ^. dropdown_change
-    , iV <$ ePostBuild
-    ]
+    ValidationWidgetOutput (pure mempty) eChange never
 
 selectOptionalWidget :: (MonadWidget t m, HasErrorMessage e, Ord c)
   => SelectWidgetConfig c
-  -> ValidationWidget t m e (Wrap (Maybe c))
-selectOptionalWidget swc i dv des = divClass "form-group" $ do
+  -> ValidationWidget t m e (Wrap (Maybe c)) u
+selectOptionalWidget swc i dv du des = divClass "form-group" $ do
   let
     it = idToText i
 
@@ -98,7 +102,7 @@ selectOptionalWidget swc i dv des = divClass "form-group" $ do
 
   errorsForId i des
 
-  pure $ ValidationWidgetOutput (pure mempty) eChange
+  pure $ ValidationWidgetOutput (pure mempty) eChange never
 
 -- this is going to require a reworking of dropdown from reflex-dom to get going
 

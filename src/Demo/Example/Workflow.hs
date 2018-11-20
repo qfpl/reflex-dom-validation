@@ -57,6 +57,19 @@ import Reflex.Dom.Validation.Bootstrap.Select
 import Reflex.Dom.Validation.Bootstrap.Errors
 import Reflex.Dom.Validation.Bootstrap.Html5
 
+data Nest1U =
+  Nest1U {
+    _n1uIx :: Int
+  } deriving (Eq, Ord, Show, Read, Generic)
+
+instance ToJSON Nest1U where
+instance FromJSON Nest1U where
+
+makeLenses ''Nest1U
+
+instance AsWorkflowIndex Nest1U where
+  workflowIndex = n1uIx
+
 data Nest1 f =
   Nest1 {
     _n1a :: Wrap (Maybe Text) f
@@ -78,6 +91,19 @@ instance NFunctor Nest1 where
   nmap z (Nest1 a b c) = Nest1 (nmap z a) (nmap z b) (nmap z c)
 
 makeLenses ''Nest1
+
+data Nest2U =
+  Nest2U {
+    _n2uIx :: Int
+  } deriving (Eq, Ord, Show, Read, Generic)
+
+instance ToJSON Nest2U where
+instance FromJSON Nest2U where
+
+makeLenses ''Nest2U
+
+instance AsWorkflowIndex Nest2U where
+  workflowIndex = n2uIx
 
 data Nest2 f =
   Nest2 {
@@ -101,6 +127,19 @@ instance NFunctor Nest2 where
 
 makeLenses ''Nest2
 
+data Nest3U =
+  Nest3U {
+    _n3uIx :: Int
+  } deriving (Eq, Ord, Show, Read, Generic)
+
+instance ToJSON Nest3U where
+instance FromJSON Nest3U where
+
+makeLenses ''Nest3U
+
+instance AsWorkflowIndex Nest3U where
+  workflowIndex = n3uIx
+
 data Nest3 f =
   Nest3 {
     _n3g :: Wrap (Maybe Text) f
@@ -122,6 +161,22 @@ instance NFunctor Nest3 where
   nmap z (Nest3 a b c) = Nest3 (nmap z a) (nmap z b) (nmap z c)
 
 makeLenses ''Nest3
+
+data NestU =
+  NestU {
+    _nuIx :: Int
+  , _n1u :: Nest1U
+  , _n2u :: Nest2U
+  , _n3u :: Nest3U
+  } deriving (Eq, Ord, Show, Read, Generic)
+
+instance ToJSON NestU where
+instance FromJSON NestU where
+
+makeLenses ''NestU
+
+instance AsWorkflowIndex NestU where
+  workflowIndex = nuIx
 
 data Nest f =
   Nest {
@@ -145,53 +200,55 @@ instance NFunctor Nest where
 
 makeLenses ''Nest
 
-fooNVx :: forall t m e. (MonadWidget t m)
+fooNVx :: forall t m e. (MonadWidget t m, HasNotSpecified e)
       => Proxy t -> Proxy m -> ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
-fooNVx _ _ _ (Wrap mt) =
-  Success . Wrap . Identity . join $ mt
+fooNVx _ _ _ (Wrap (Just (Just t))) =
+  Success . Wrap . Identity . Just $ t
+fooNVx _ _ i (Wrap Nothing) =
+  Failure . pure . WithId i $ _NotSpecified # ()
 
 fooNWx :: (MonadWidget t m, HasErrorMessage e)
       => Text
-      -> ValidationWidget t m e (Wrap (Maybe Text))
+      -> ValidationWidget t m e (Wrap (Maybe Text)) u
 fooNWx l =
   textWidget (TextWidgetConfig (Just l) UpdateOnChange)
 
-fooNFx :: forall t m e f. (MonadWidget t m, HasErrorMessage e)
+fooNFx :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
       => (forall g. Lens' (f g) (Wrap (Maybe Text) g))
       -> Text
       -> Text
-      -> Field t m e f (Wrap (Maybe Text))
+      -> Field t m e f (Wrap (Maybe Text)) u ()
 fooNFx o i l =
-  Field o (\p -> Id (Just p) i) (fooNVx (Proxy :: Proxy t) (Proxy :: Proxy m)) (fooNWx l)
+  Field o united (\p -> Id (Just p) i) (fooNVx (Proxy :: Proxy t) (Proxy :: Proxy m)) (fooNWx l)
 
-fooN1a :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest1 (Wrap (Maybe Text))
+fooN1a :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u ()
 fooN1a = fooNFx n1a "-a" "A"
 
-fooN1b :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest1 (Wrap (Maybe Text))
+fooN1b :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u ()
 fooN1b = fooNFx n1b "-b" "B"
 
-fooN1c :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest1 (Wrap (Maybe Text))
+fooN1c :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u ()
 fooN1c = fooNFx n1c "-c" "C"
 
-fooN2d :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest2 (Wrap (Maybe Text))
+fooN2d :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest2 (Wrap (Maybe Text)) u ()
 fooN2d = fooNFx n2d "-d" "D"
 
-fooN2e :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest2 (Wrap (Maybe Text))
+fooN2e :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest2 (Wrap (Maybe Text)) u ()
 fooN2e = fooNFx n2e "-e" "E"
 
-fooN2f :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest2 (Wrap (Maybe Text))
+fooN2f :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest2 (Wrap (Maybe Text)) u ()
 fooN2f = fooNFx n2f "-f" "F"
 
-fooN3g :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest3 (Wrap (Maybe Text))
+fooN3g :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest3 (Wrap (Maybe Text)) u ()
 fooN3g = fooNFx n3g "-g" "G"
 
-fooN3h :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest3 (Wrap (Maybe Text))
+fooN3h :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest3 (Wrap (Maybe Text)) u ()
 fooN3h = fooNFx n3h "-h" "H"
 
-fooN3i :: (MonadWidget t m, HasErrorMessage e) => Field t m e Nest3 (Wrap (Maybe Text))
+fooN3i :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest3 (Wrap (Maybe Text)) u ()
 fooN3i = fooNFx n3i "-i" "I"
 
-fooN1V :: forall t m e. (MonadWidget t m, HasErrorMessage e)
+fooN1V :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
        => Proxy t
        -> Proxy m
        -> ValidationFn e Nest1 Nest1
@@ -201,19 +258,19 @@ fooN1V _ _ i v =
     fieldValidation (fooN1b @t @m) i v <*>
     fieldValidation (fooN1c @t @m) i v
 
-fooN1W :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
-       => ValidationWidget t m e Nest1
-fooN1W = workflowWidget [ WorkflowStep "W1" fooN1a
-                        , WorkflowStep "W2" fooN1b
-                        , WorkflowStep "W3" fooN1c
+fooN1W :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+       => ValidationWidget t m e Nest1 Nest1U
+fooN1W = workflowWidget [ WorkflowStep "W1" fooN1a []
+                        , WorkflowStep "W2" fooN1b []
+                        , WorkflowStep "W3" fooN1c []
                         ] workflowWidgetConfig
 
-fooN1F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
-      => Field t m e Nest Nest1
+fooN1F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+      => Field t m e Nest Nest1 NestU Nest1U
 fooN1F =
-  Field n1 (\i -> Id (Just i) "-1") (fooN1V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN1W
+  Field n1 n1u (\i -> Id (Just i) "-1") (fooN1V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN1W
 
-fooN2V :: forall t m e. (MonadWidget t m, HasErrorMessage e)
+fooN2V :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
        => Proxy t
        -> Proxy m
        -> ValidationFn e Nest2 Nest2
@@ -223,19 +280,19 @@ fooN2V _ _ i v =
     fieldValidation (fooN2e @t @m) i v <*>
     fieldValidation (fooN2f @t @m) i v
 
-fooN2W :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
-       => ValidationWidget t m e Nest2
-fooN2W = workflowWidget [ WorkflowStep "W4" fooN2d
-                        , WorkflowStep "W5" fooN2e
-                        , WorkflowStep "W6" fooN2f
+fooN2W :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+       => ValidationWidget t m e Nest2 Nest2U
+fooN2W = workflowWidget [ WorkflowStep "W4" fooN2d []
+                        , WorkflowStep "W5" fooN2e []
+                        , WorkflowStep "W6" fooN2f []
                         ] workflowWidgetConfig
 
-fooN2F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
-      => Field t m e Nest Nest2
+fooN2F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+      => Field t m e Nest Nest2 NestU Nest2U
 fooN2F =
-  Field n2 (\i -> Id (Just i) "-2") (fooN2V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN2W
+  Field n2 n2u (\i -> Id (Just i) "-2") (fooN2V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN2W
 
-fooN3V :: forall t m e. (MonadWidget t m, HasErrorMessage e)
+fooN3V :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
        => Proxy t
        -> Proxy m
        -> ValidationFn e Nest3 Nest3
@@ -245,19 +302,19 @@ fooN3V _ _ i v =
     fieldValidation (fooN3h @t @m) i v <*>
     fieldValidation (fooN3i @t @m) i v
 
-fooN3W :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
-       => ValidationWidget t m e Nest3
-fooN3W = workflowWidget [ WorkflowStep "W7" fooN3g
-                        , WorkflowStep "W8" fooN3h
-                        , WorkflowStep "W9" fooN3i
+fooN3W :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+       => ValidationWidget t m e Nest3 Nest3U
+fooN3W = workflowWidget [ WorkflowStep "W7" fooN3g []
+                        , WorkflowStep "W8" fooN3h []
+                        , WorkflowStep "W9" fooN3i []
                         ] workflowWidgetConfig
 
-fooN3F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
-      => Field t m e Nest Nest3
+fooN3F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+      => Field t m e Nest Nest3 NestU Nest3U
 fooN3F =
-  Field n3 (\i -> Id (Just i) "-3") (fooN3V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN3W
+  Field n3 n3u (\i -> Id (Just i) "-3") (fooN3V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN3W
 
-fooNV :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
+fooNV :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
       => Proxy t
       -> Proxy m
       -> ValidationFn e Nest Nest
@@ -267,17 +324,41 @@ fooNV _ _ i v =
     fieldValidation (fooN2F @t @m) i v <*>
     fieldValidation (fooN3F @t @m) i v
 
-fooNW :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
-       => ValidationWidget t m e Nest
-fooNW = workflowWidget [ WorkflowStep "WA" fooN1F
-                        , WorkflowStep "WB" fooN2F
-                        , WorkflowStep "WC" fooN3F
-                        ] workflowWidgetConfig
+fooNW :: (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+       => ValidationWidget t m e Nest NestU
+fooNW = workflowWidget [ WorkflowStep "WA" fooN1F $
+                         [ WorkflowStep "W1" fooN1a []
+                         , WorkflowStep "W2" fooN1b []
+                         , WorkflowStep "W3" fooN1c []
+                         ]
+                       , WorkflowStep "WB" fooN2F $
+                         [ WorkflowStep "W4" fooN2d []
+                         , WorkflowStep "W5" fooN2e []
+                         , WorkflowStep "W6" fooN2f []
+                         ]
+                       , WorkflowStep "WC" fooN3F $
+                         [ WorkflowStep "W7" fooN3g []
+                         , WorkflowStep "W8" fooN3h []
+                         , WorkflowStep "W9" fooN3i []
+                         ]
+                       ] workflowWidgetConfig
 
-fooNF :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e)
-      => Field t m e Nest Nest
+class AsNest f where
+  nest :: Lens' (f g) (Nest g)
+
+instance AsNest Nest where
+  nest = id
+
+class AsNestU u where
+  nestU :: Lens' u NestU
+
+instance AsNestU NestU where
+  nestU = id
+
+fooNF :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e, AsNest f, AsNestU u)
+      => Field t m e f Nest u NestU
 fooNF =
-  Field id (\i -> Id (Just i) "-n") (fooNV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooNW
+  Field nest nestU (\i -> Id (Just i) "-n") (fooNV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooNW
 
 data Bar = A | B | C deriving (Eq, Ord, Show, Read, Generic)
 
@@ -312,26 +393,50 @@ class AsSelectDemo g where
 instance AsSelectDemo SelectDemo where
   selectDemo = id
 
+data FooU =
+  FooU {
+    _fooIx :: Int
+  , _fooNest :: NestU
+  } deriving (Eq, Ord, Show, Read, Generic)
+
+instance ToJSON FooU where
+instance FromJSON FooU where
+
+makeLenses ''FooU
+
+instance AsWorkflowIndex FooU where
+  workflowIndex = fooIx
+
+instance AsNestU FooU where
+  nestU = fooNest
+
+class AsFooU u where
+  fooU :: Lens' u FooU
+
+instance AsFooU FooU where
+  fooU = id
+
 data Foo f =
   Foo {
-    _fooD :: SelectDemo f
+    _fooN :: Nest f
+  , _fooD :: SelectDemo f
   , _fooA :: Wrap Day f
   , _fooB :: Wrap (Set Bar) f
   , _fooC :: Wrap (Maybe Text) f
   } deriving (Eq, Ord, Show, Read, Generic)
 
 instance Semigroup1 f => Semigroup (Foo f) where
-  Foo d1 a1 b1 c1 <> Foo d2 a2 b2 c2 = Foo (d1 <> d2) (a1 <> a2) (b1 <> b2) (c1 <> c2)
+  Foo n1 d1 a1 b1 c1 <> Foo n2 d2 a2 b2 c2 = Foo (n1 <> n2) (d1 <> d2) (a1 <> a2) (b1 <> b2) (c1 <> c2)
 
 instance Monoid1 f => Monoid (Foo f) where
-  mempty = Foo mempty mempty mempty mempty
+  mempty = Foo mempty mempty mempty mempty mempty
   mappend = (<>)
 
 instance ToJSON1 f => ToJSON (Foo f) where
 instance FromJSON1 f => FromJSON (Foo f) where
 
 instance NFunctor Foo where
-  nmap f (Foo d a b c) = Foo (nmap f d) (nmap f a) (nmap f b) (nmap f c)
+  nmap f (Foo n d a b c) = Foo (nmap f n) (nmap f d) (nmap f a) (nmap f b) (nmap f c)
 
 makeLenses ''Foo
 
@@ -340,6 +445,9 @@ class AsFoo g where
 
 instance AsFoo Foo where
   foo = id
+
+instance AsNest Foo where
+  nest = fooN
 
 instance AsSelectDemo Foo where
   selectDemo = fooD
@@ -371,19 +479,19 @@ fooAW :: ( MonadWidget t m
          , HasErrorMessage e
          , HasValidityError e
          )
-      => ValidationWidget t m e (Wrap Day)
+      => ValidationWidget t m e (Wrap Day) u
 fooAW =
   validWidget $ ValidWidgetConfig (Just "A") dayConfigBuilder
 
-fooAF :: forall t m e.
+fooAF :: forall t m e u.
          ( MonadWidget t m
          , HasErrorMessage e
          , HasFooNotDigits e
          , HasValidityError e
          )
-      => Field t m e Foo (Wrap Day)
+      => Field t m e Foo (Wrap Day) u ()
 fooAF =
-  Field fooA (\i -> Id (Just i) "-a") (fooAV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooAW
+  Field fooA united (\i -> Id (Just i) "-a") (fooAV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooAW
 
 fooBV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotLower e)
       => Proxy t -> Proxy m -> ValidationFn e (Wrap (Set Bar)) (Wrap (Set Bar))
@@ -393,7 +501,7 @@ fooBV _ _ _ _ =
   Success . Wrap . Identity $ mempty
 
 fooBW :: (MonadWidget t m, HasErrorMessage e)
-      => ValidationWidget t m e (Wrap (Set Bar))
+      => ValidationWidget t m e (Wrap (Set Bar)) u
 fooBW =
   checkboxWidget . CheckboxWidgetConfig (Just "B") True $
     [ CheckboxOptionConfig "A" "-a" A
@@ -401,10 +509,10 @@ fooBW =
     , CheckboxOptionConfig "C" "-c" C
     ]
 
-fooBF :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotLower e)
-      => Field t m e Foo (Wrap (Set Bar))
+fooBF :: forall t m e u. (MonadWidget t m, HasErrorMessage e, HasFooNotLower e)
+      => Field t m e Foo (Wrap (Set Bar)) u ()
 fooBF =
-  Field fooB (\i -> Id (Just i) "-b") (fooBV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooBW
+  Field fooB united (\i -> Id (Just i) "-b") (fooBV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooBW
 
 fooCV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e)
       => Proxy t -> Proxy m -> ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
@@ -416,21 +524,21 @@ fooCV _ _ _ _ =
   Success . Wrap . Identity $ Nothing
 
 fooCW :: (MonadWidget t m, HasErrorMessage e)
-      => ValidationWidget t m e (Wrap (Maybe Text))
+      => ValidationWidget t m e (Wrap (Maybe Text)) u
 fooCW =
   textWidget (TextWidgetConfig (Just "C") UpdateOnChange)
 
-fooCF :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e)
-      => Field t m e Foo (Wrap (Maybe Text))
+fooCF :: forall t m e u. (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e)
+      => Field t m e Foo (Wrap (Maybe Text)) u ()
 fooCF =
-  Field fooC (\i -> Id (Just i) "-c") (fooCV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooCW
+  Field fooC united (\i -> Id (Just i) "-c") (fooCV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooCW
 
 selectOV :: (MonadWidget t m, HasNotSpecified e) => Proxy t -> Proxy m -> ValidationFn e (Wrap Bar) (Wrap Bar)
 selectOV _ _ i (Wrap (Just x)) = Success . Wrap . Identity $ x
 selectOV _ _ i (Wrap Nothing) = Failure . pure . WithId i $ _NotSpecified # ()
 
 selectOW :: (MonadWidget t m, HasErrorMessage e)
-         => ValidationWidget t m e (Wrap Bar)
+         => ValidationWidget t m e (Wrap Bar) u
 selectOW =
   selectWidget A . SelectWidgetConfig (Just "One") $
     [ SelectOptionConfig "A" A
@@ -438,17 +546,17 @@ selectOW =
     , SelectOptionConfig "C" C
     ]
 
-selectOF :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
-         => Field t m e SelectDemo (Wrap Bar)
+selectOF :: forall t m e u. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
+         => Field t m e SelectDemo (Wrap Bar) u ()
 selectOF =
-  Field sdOne (\i -> Id (Just i) "-o") (selectOV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectOW
+  Field sdOne united (\i -> Id (Just i) "-o") (selectOV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectOW
 
 selectMaV :: MonadWidget t m => Proxy t -> Proxy m -> ValidationFn e (Wrap (Maybe Bar)) (Wrap (Maybe Bar))
 selectMaV _ _ i (Wrap (Just mb)) = Success . Wrap . Identity $ mb
 selectMaV _ _ i (Wrap Nothing) = Success . Wrap . Identity $ Nothing
 
 selectMaW :: (MonadWidget t m, HasErrorMessage e)
-          => ValidationWidget t m e (Wrap (Maybe Bar))
+          => ValidationWidget t m e (Wrap (Maybe Bar)) u
 selectMaW =
   selectOptionalWidget . SelectWidgetConfig (Just "Maybe") $
     [ SelectOptionConfig "A" A
@@ -456,9 +564,9 @@ selectMaW =
     , SelectOptionConfig "C" C
     ]
 
-selectMaF :: forall t m e. (MonadWidget t m, HasErrorMessage e) => Field t m e SelectDemo (Wrap (Maybe Bar))
+selectMaF :: forall t m e u. (MonadWidget t m, HasErrorMessage e) => Field t m e SelectDemo (Wrap (Maybe Bar)) u ()
 selectMaF =
-  Field sdMaybe (\i -> Id (Just i) "-ma") (selectMaV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectMaW
+  Field sdMaybe united (\i -> Id (Just i) "-ma") (selectMaV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectMaW
 
 fooDV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e, HasNotSpecified e)
       => Proxy t -> Proxy m -> ValidationFn e SelectDemo SelectDemo
@@ -468,19 +576,21 @@ fooDV _ _ i cr =
     fieldValidation (selectMaF @t @m) i cr
 
 fooDW :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
-      => ValidationWidget t m e SelectDemo
-fooDW i dv des = do
-  eO <- fieldWidget selectOF i dv des
-  eMa <- fieldWidget selectMaF i dv des
+      => ValidationWidget t m e SelectDemo u
+fooDW i dv du des = do
+  eO <- fieldWidget selectOF i dv du des
+  eMa <- fieldWidget selectMaF i dv du des
   pure $ eO <> eMa
 
-fooDF :: forall t m e f. (MonadWidget t m, AsSelectDemo f, HasErrorMessage e, HasFooNotUpper e, HasNotSpecified e)
-      => Field t m e f SelectDemo
+fooDF :: forall t m e f u. (MonadWidget t m, AsSelectDemo f, HasErrorMessage e, HasFooNotUpper e, HasNotSpecified e)
+      => Field t m e f SelectDemo u ()
 fooDF =
-  Field selectDemo (\i -> Id (Just i) "-d") (fooDV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooDW
+  Field selectDemo united (\i -> Id (Just i) "-d") (fooDV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooDW
 
 fooV :: forall t m e.
         ( MonadWidget t m
+        , Eq e
+        , HasBadWorkflowIndex e
         , HasErrorMessage e
         , HasFooNotDigits e
         , HasFooNotLower e
@@ -491,10 +601,11 @@ fooV :: forall t m e.
      => Proxy t -> Proxy m -> ValidationFn e Foo Foo
 fooV _ _ i cr =
   Foo <$>
-    fieldValidation (fooDF @t @m) i cr <*>
-    fieldValidation (fooAF @t @m) i cr <*>
-    fieldValidation (fooBF @t @m) i cr <*>
-    fieldValidation (fooCF @t @m) i cr
+    fieldValidation (fooNF @t @m @e @Foo @FooU) i cr <*>
+    fieldValidation (fooDF @t @m @e @Foo @FooU) i cr <*>
+    fieldValidation (fooAF @t @m @e @FooU) i cr <*>
+    fieldValidation (fooBF @t @m @e @FooU) i cr <*>
+    fieldValidation (fooCF @t @m @e @FooU) i cr
 
 fooW :: ( MonadWidget t m
         , Eq e
@@ -506,17 +617,18 @@ fooW :: ( MonadWidget t m
         , HasNotSpecified e
         , HasBadWorkflowIndex e
         )
-      => ValidationWidget t m e Foo
+      => ValidationWidget t m e Foo FooU
 fooW =
   workflowWidget
-    [ WorkflowStep "Workflow - Page 1" fooDF
-    , WorkflowStep "Workflow - Page 2" fooAF
-    , WorkflowStep "Workflow - Page 3" fooBF
-    , WorkflowStep "Workflow - Page 4" fooCF
+    [ WorkflowStep "Workflow - Page 1" fooNF []
+    , WorkflowStep "Workflow - Page 2" fooDF []
+    , WorkflowStep "Workflow - Page 3" fooAF []
+    , WorkflowStep "Workflow - Page 4" fooBF []
+    , WorkflowStep "Workflow - Page 5" fooCF []
     ]
     workflowWidgetConfig
 
-fooF :: forall t m e f.
+fooF :: forall t m e f u.
         ( MonadWidget t m
         , Eq e
         , HasErrorMessage e
@@ -526,7 +638,9 @@ fooF :: forall t m e f.
         , HasValidityError e
         , HasNotSpecified e
         , HasBadWorkflowIndex e
-        , AsFoo f)
-      => Field t m e f Foo
+        , AsFoo f
+        , AsFooU u
+        )
+      => Field t m e f Foo u FooU
 fooF =
-  Field foo (\i -> Id (Just i) "-foo") (fooV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooW
+  Field foo fooU (\i -> Id (Just i) "-foo") (fooV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooW

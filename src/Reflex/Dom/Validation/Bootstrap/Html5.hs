@@ -36,8 +36,8 @@ makeLenses ''ValidWidgetConfig
 
 validWidget :: (MonadWidget t m, HasErrorMessage e, HasValidityError e)
            => ValidWidgetConfig t m e a
-           -> ValidationWidget t m e (Wrap a)
-validWidget vwc i dv des = divClass "form-group" $ do
+           -> ValidationWidget t m e (Wrap a) u
+validWidget vwc i dv _ des = divClass "form-group" $ do
   let it = idToText i
 
   forM_ (vwc ^. vwcLabel) $
@@ -58,4 +58,4 @@ validWidget vwc i dv des = divClass "form-group" $ do
     eChange = Endo . const . Wrap <$> leftmost [Just <$> eSuccess, Nothing <$ eFailure]
 
   errorsForId i des
-  pure $ ValidationWidgetOutput dFailure eChange
+  pure $ ValidationWidgetOutput dFailure eChange never

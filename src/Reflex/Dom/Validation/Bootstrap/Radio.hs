@@ -48,8 +48,8 @@ makeLenses ''RadioWidgetConfig
 
 radioWidget :: (MonadWidget t m, HasErrorMessage e, Eq c)
             => RadioWidgetConfig c
-            -> ValidationWidget t m e (Wrap c)
-radioWidget rwc i dv des = divClass "form-group" $ do
+            -> ValidationWidget t m e (Wrap c) u
+radioWidget rwc i dv _ des = divClass "form-group" $ do
   let
     it = idToText i
     cls = "form-check " <> bool " form-check-inline" "" (rwc ^. rwcStacked)
@@ -78,5 +78,7 @@ radioWidget rwc i dv des = divClass "form-group" $ do
 
     pure $ bool Nothing (Just v) <$> ev'
 
-  pure . ValidationWidgetOutput (pure mempty) $
-    Endo . const . Wrap <$> leftmost es
+  let
+    eChange = Endo . const . Wrap <$> leftmost es
+
+  pure $ ValidationWidgetOutput (pure mempty) eChange never

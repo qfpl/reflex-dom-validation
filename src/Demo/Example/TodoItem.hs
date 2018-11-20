@@ -63,8 +63,8 @@ toggleV i mv =
   Success . Wrap . Identity . fromMaybe False . unWrap $ mv
 
 toggleW :: (MonadWidget t m)
-        => ValidationWidget t m e (Wrap Bool)
-toggleW i dv _ = do
+        => ValidationWidget t m e (Wrap Bool) u
+toggleW i dv _ _ = do
   let
     f = fromMaybe False . unWrap
     ev = f <$> updated dv
@@ -72,13 +72,14 @@ toggleW i dv _ = do
   cb <- checkbox iv $ def
     & setValue .~ ev
     & attributes .~ pure ("id" =: idToText i)
-  let ev' = cb ^. checkbox_change
+  let
+    ev' = cb ^. checkbox_change
+    eChange = Endo . const . Wrap . Just <$> ev'
 
-  pure . ValidationWidgetOutput (pure mempty) $
-    Endo . const . Wrap . Just <$> ev'
+  pure $ ValidationWidgetOutput (pure mempty) eChange never
 
-completeF :: MonadWidget t m => Field t m e TodoItem (Wrap Bool)
-completeF = Field tiComplete (\i -> Id (Just i) "-c") toggleV toggleW
+completeF :: MonadWidget t m => Field t m e TodoItem (Wrap Bool) u ()
+completeF = Field tiComplete united (\i -> Id (Just i) "-c") toggleV toggleW
 
 -- TODO make this an error if it is empty
 itemV :: ValidationFn e (Wrap Text) (Wrap Text)
@@ -86,8 +87,8 @@ itemV i mv =
   Success . Wrap . Identity . fromMaybe "" . unWrap $ mv
 
 itemW :: MonadWidget t m
-      => ValidationWidget t m e (Wrap Text)
-itemW i dv _ = do
+      => ValidationWidget t m e (Wrap Text) u
+itemW i dv _ _ = do
   let
     f = fromMaybe "" . unWrap
     ev = f <$> updated dv
@@ -95,28 +96,29 @@ itemW i dv _ = do
   ti <- textInput $ def
     & setValue .~ ev
     & textInputConfig_initialValue .~ iv
-  let ev' = ti ^. textInput_input
+  let
+    ev' = ti ^. textInput_input
+    eChange = Endo . const . Wrap . Just <$> ev'
 
-  pure . ValidationWidgetOutput (pure mempty) $
-    Endo . const . Wrap . Just <$> ev'
+  pure $ ValidationWidgetOutput (pure mempty) eChange never
 
-itemF :: MonadWidget t m => Field t m e TodoItem (Wrap Text)
-itemF = Field tiItem (\i -> Id (Just i) "-i") itemV itemW
+itemF :: MonadWidget t m => Field t m e TodoItem (Wrap Text) u ()
+itemF = Field tiItem united (\i -> Id (Just i) "-i") itemV itemW
 
 todoItemV :: forall t m e. MonadWidget t m => Proxy t -> Proxy m -> ValidationFn e TodoItem TodoItem
 todoItemV _ _ i mti =
   TodoItem <$> fieldValidation (completeF @t @m) i mti <*> fieldValidation (itemF @t @m) i mti
 
 todoItemW :: (MonadWidget t m, HasErrorMessage e)
-          => ValidationWidget t m e TodoItem
-todoItemW i dv des = do
+          => ValidationWidget t m e TodoItem u
+todoItemW i dv du des = do
 
-  ValidationWidgetOutput dCompleteE eComplete <- fieldWidget completeF i dv des
-  ValidationWidgetOutput dItemE eItem <- fieldWidget itemF i dv des
+  ValidationWidgetOutput dCompleteE eComplete eCompleteU <- fieldWidget completeF i dv du des
+  ValidationWidgetOutput dItemE eItem eItemU <- fieldWidget itemF i dv du des
 
   errorsForId i des
 
-  pure $ ValidationWidgetOutput (dCompleteE <> dItemE) (eComplete <> eItem)
+  pure $ ValidationWidgetOutput (dCompleteE <> dItemE) (eComplete <> eItem) (eCompleteU <> eItemU)
 
-todoItemF :: forall t m e. (MonadWidget t m, HasErrorMessage e) => Field t m e TodoItem TodoItem
-todoItemF = Field id (\i -> Id (Just i) "-ti") (todoItemV (Proxy :: Proxy t) (Proxy :: Proxy m)) todoItemW
+todoItemF :: forall t m e u. (MonadWidget t m, HasErrorMessage e) => Field t m e TodoItem TodoItem u u
+todoItemF = Field id id (\i -> Id (Just i) "-ti") (todoItemV (Proxy :: Proxy t) (Proxy :: Proxy m)) todoItemW

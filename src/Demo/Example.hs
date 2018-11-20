@@ -39,40 +39,56 @@ import Demo.Example.Error
 -- - we might want to tie that to buttons in workflows etc..., and so making that configurable might be a thing
 
 data ExampleTag a where
-  ExTag :: ExampleTag (TestCollections Maybe)
+  DataTag :: ExampleTag (TestCollections Maybe)
+  UiTag :: ExampleTag TestCollectionsU
 
 instance GEq ExampleTag where
-  geq ExTag ExTag = Just Refl
+  geq DataTag DataTag = Just Refl
+  geq UiTag UiTag = Just Refl
+  geq _ _ = Nothing
 
 instance GCompare ExampleTag where
-  gcompare ExTag ExTag = GEQ
+  gcompare DataTag DataTag = GEQ
+  gcompare DataTag _ = GLT
+  gcompare _ DataTag = GGT
+  gcompare UiTag UiTag = GEQ
 
 instance GShow ExampleTag where
-  gshowsPrec _p ExTag = showString "Tag"
+  gshowsPrec _p DataTag = showString "Data"
+  gshowsPrec _p UiTag = showString "Ui"
 
 instance ShowTag ExampleTag Identity where
-  showTaggedPrec ExTag = showsPrec
+  showTaggedPrec DataTag = showsPrec
+  showTaggedPrec UiTag = showsPrec
 
 instance GKey ExampleTag where
-  toKey (This ExTag) = "tag"
+  toKey (This DataTag) = "data"
+  toKey (This UiTag) = "ui"
   fromKey t =
     case t of
-      "tag" -> Just (This ExTag)
+      "data" -> Just (This DataTag)
+      "ui" -> Just (This UiTag)
       _ -> Nothing
-  keys _ = [This ExTag]
+  keys _ = [This DataTag, This UiTag]
 
 instance ToJSONTag ExampleTag Identity where
-  toJSONTagged ExTag (Identity x) = toJSON x
+  toJSONTagged DataTag (Identity x) = toJSON x
+  toJSONTagged UiTag (Identity x) = toJSON x
 
 instance FromJSONTag ExampleTag Identity where
-  parseJSONTagged ExTag x = Identity <$> parseJSON x
+  parseJSONTagged DataTag x = Identity <$> parseJSON x
+  parseJSONTagged UiTag x = Identity <$> parseJSON x
 
 go :: forall t m. MonadWidget t m => m (Event t (TestCollections Identity))
 go =
-  wrapUpStorage (testCollectionsF :: Field t m MyError TestCollections TestCollections) ExTag mempty $ \d -> do
-    -- the version with a validation button
-    eValidate <- buttonClass "Validate" "btn"
-    pure (current d <@ eValidate)
+  let
+    tc = testCollectionsF :: Field t m MyError TestCollections TestCollections TestCollectionsU TestCollectionsU
+    tcu = TestCollectionsU (FooU 0 (NestU 0 (Nest1U 0) (Nest2U 0) (Nest3U 0)))
+  in
+    wrapUpStorage tc DataTag mempty UiTag tcu $ \d -> do
+      -- the version with a validation button
+      eValidate <- buttonClass "Validate" "btn"
+      pure (current d <@ eValidate)
 
     -- the version where every change causes a validation
     -- pure (updated d)

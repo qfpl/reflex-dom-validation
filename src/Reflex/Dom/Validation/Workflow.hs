@@ -16,16 +16,16 @@ module Reflex.Dom.Validation.Workflow (
   , _BlankStep
   , _SaveStep
   , _ValidateStep
+  , AsWorkflowIndex(..)
   , WorkflowStep(..)
   , WorkflowWidgetConfig(..)
   , wwcBackRequirement
   , wwcNextRequirement
-  , wwcTemplate
   , workflowWidget
   , HasBadWorkflowIndex(..)
   ) where
 
-import Control.Monad (join)
+import Control.Monad (join, forM)
 import Data.Functor.Identity (Identity(..))
 import Data.List (nub)
 import Data.Monoid (Endo(..))
@@ -51,22 +51,31 @@ data StepRequirement =
 
 makePrisms ''StepRequirement
 
-data WorkflowStep t m e f where
-  WorkflowStep :: Text -> Field t m e f f' -> WorkflowStep t m e f
-  -- WorkflowNested :: Text -> (forall g. Lens' (f g) (f' g)) -> [WorkflowStep t m e f'] -> WorkflowStep t m e f
+data WorkflowStep t m e f u where
+  WorkflowStep :: Text -> Field t m e f f' u u' -> [WorkflowStep t m e f' u'] -> WorkflowStep t m e f u
 
-stepLabel :: WorkflowStep t m e f -> Text
-stepLabel (WorkflowStep l _) = l
--- stepLabel (WorkflowNested l _ _) = l
+stepLabel :: WorkflowStep t m e f u -> Text
+stepLabel (WorkflowStep l _ _) = l
 
-data WorkflowWidgetConfig t m e f =
+data WorkflowWidgetConfig t m e =
   WorkflowWidgetConfig {
     _wwcBackRequirement :: StepRequirement
   , _wwcNextRequirement :: StepRequirement
-  , _wwcTemplate :: Int
-                 -> [Text]
-                 -> m (ValidationWidgetOutput t e f)
-                 -> m (Event t Int, ValidationWidgetOutput t e f)
+  , _wwcHeader :: forall x.
+                  Int
+               -> [Text]
+               -> m x
+               -> m (Event t Int)
+  , _wwcFooter :: forall x.
+                  Int
+               -> [Text]
+               -> m x
+               -> m (Event t Int)
+  , _wwcCombine :: forall f u.
+                   m (Event t Int)
+                -> m (ValidationWidgetOutput t e f u)
+                -> m (Event t Int)
+                -> m (Event t Int, ValidationWidgetOutput t e f u)
   }
 
 makeLenses ''WorkflowWidgetConfig
@@ -79,25 +88,30 @@ foldValidation (e:es) _ = Left (e NE.:| es)
 class HasBadWorkflowIndex e where
   _BadWorkflowIndex :: Prism' e Int
 
-workflowWidget :: forall t m e f.
-                  (MonadWidget t m, Eq e, HasBadWorkflowIndex e, NFunctor f)
-               => [WorkflowStep t m e f]
-               -> WorkflowWidgetConfig t m e f
-               -> ValidationWidget t m e f
-workflowWidget [] _ _ _ _ =
+class AsWorkflowIndex u where
+  workflowIndex :: Lens' u Int
+
+workflowWidget :: forall t m e f u.
+                  (MonadWidget t m, Eq e, HasBadWorkflowIndex e, NFunctor f, AsWorkflowIndex u)
+               => [WorkflowStep t m e f u]
+               -> WorkflowWidgetConfig t m e
+               -> ValidationWidget t m e f u
+workflowWidget [] _ _ _ _ _ =
   pure mempty
-workflowWidget steps wwc i dv des =
+workflowWidget steps wwc i dv du des =
   let
-    labels = fmap stepLabel steps
-    w wix iv =
-      let
-      in case atMay steps wix of
+    labels = stepLabel <$> steps
+    w wix iv eIxS =
+      case atMay steps wix of
         Nothing -> Workflow $ do
           text "Indexing error"
           pure (mempty, never)
-        Just (WorkflowStep _ f@(Field fl _ _ _)) -> Workflow $ mdo
-          (eIx, ValidationWidgetOutput dFailure eChange) <- (wwc ^. wwcTemplate) wix labels $
-            fieldWidget f i dv des
+        Just (WorkflowStep _ f@(Field fl flU _ _ _) ws) -> Workflow $ mdo
+          (eIx, ValidationWidgetOutput dFailure eChange eU) <-
+              (wwc ^. wwcCombine)
+                ((wwc ^. wwcHeader) wix labels (pure ()))
+                (fieldWidget f i dv du des)
+                ((wwc ^. wwcFooter) wix labels (pure ()))
 
           let
             eBack = ffilter (< wix) eIx
@@ -105,8 +119,7 @@ workflowWidget steps wwc i dv des =
 
           dv' <- foldDyn ($) iv  . mergeWith (.) $ [
               fmap appEndo eChange
-              -- TODO double check this
-            , flip const <$> updated dv
+            , const <$> updated dv
             ]
 
           let
@@ -146,7 +159,9 @@ workflowWidget steps wwc i dv des =
               _ -> (never, (\x y -> (y, x)) <$> current dv' <@> eNext)
             eFailure = eBackE <> eNextE
 
-            eW = uncurry w <$> leftmost [eBackW, eNextW]
+            e' = leftmost [eBackW, eNextW]
+            eIx' = ((\i -> Endo (\x -> x & workflowIndex .~ i)) . fst) <$> e'
+            eW = leftmost [(\(x,y) -> w x y eIxS) <$> e', (\y x -> w x y eIxS) <$> current dv <@> eIxS]
 
           iFailure <- sample . current $ dFailure
           dFailure' <- holdDyn iFailure . leftmost $
@@ -154,14 +169,17 @@ workflowWidget steps wwc i dv des =
             , [] <$ eW
             ]
 
-          pure (ValidationWidgetOutput dFailure' eChange', eW)
+          pure (ValidationWidgetOutput dFailure' eChange' (eU <> eIx'), eW)
   in do
     iv <- sample . current $ dv
-    dvwo <- workflow $ w 0 iv
+    let dIx = view workflowIndex <$> du
+    uv <- sample . current $ dIx
+    dvwo <- workflow $ w uv iv (updated dIx)
     let
       dd = _vwoFailures <$> dvwo
       de = _vwoSuccesses <$> dvwo
-    pure $ ValidationWidgetOutput (join dd) (switchDyn de)
+      du = _vwoUI <$> dvwo
+    pure $ ValidationWidgetOutput (join dd) (switchDyn de) (switchDyn du)
 
 -- validateBetween :: (NFunctor f, HasBadWorkflowIndex e)
 --                 => [WorkflowStep t m e f]
