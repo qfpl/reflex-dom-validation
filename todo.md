@@ -1,4 +1,6 @@
 
+- divide text / textArea / any others into optional or required
+
 - add the ability for custom attributes for all of the bootstrap widgets
 - complete HTML5 inputs
 

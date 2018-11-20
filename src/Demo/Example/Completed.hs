@@ -43,4 +43,4 @@ completeW =
 
 completedF :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, AsCompleted f)
            => Field t m e f (Wrap Bool) u ()
-completedF = Field completed united (\i -> Id (Just i) "-c") required completeW
+completedF = Field completed united (idApp "-c") required completeW

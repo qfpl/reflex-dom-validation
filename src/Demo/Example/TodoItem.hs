@@ -79,7 +79,7 @@ toggleW i dv _ _ = do
   pure $ ValidationWidgetOutput (pure mempty) eChange never
 
 completeF :: MonadWidget t m => Field t m e TodoItem (Wrap Bool) u ()
-completeF = Field tiComplete united (\i -> Id (Just i) "-c") toggleV toggleW
+completeF = Field tiComplete united (idApp "-c") toggleV toggleW
 
 -- TODO make this an error if it is empty
 itemV :: ValidationFn e (Wrap Text) (Wrap Text)
@@ -103,7 +103,7 @@ itemW i dv _ _ = do
   pure $ ValidationWidgetOutput (pure mempty) eChange never
 
 itemF :: MonadWidget t m => Field t m e TodoItem (Wrap Text) u ()
-itemF = Field tiItem united (\i -> Id (Just i) "-i") itemV itemW
+itemF = Field tiItem united (idApp "-i") itemV itemW
 
 todoItemV :: forall t m e. MonadWidget t m => Proxy t -> Proxy m -> ValidationFn e TodoItem TodoItem
 todoItemV _ _ i mti =
@@ -121,4 +121,4 @@ todoItemW i dv du des = do
   pure $ ValidationWidgetOutput (dCompleteE <> dItemE) (eComplete <> eItem) (eCompleteU <> eItemU)
 
 todoItemF :: forall t m e u. (MonadWidget t m, HasErrorMessage e) => Field t m e TodoItem TodoItem u u
-todoItemF = Field id id (\i -> Id (Just i) "-ti") (todoItemV (Proxy :: Proxy t) (Proxy :: Proxy m)) todoItemW
+todoItemF = Field id id (idApp "-ti") (todoItemV (Proxy :: Proxy t) (Proxy :: Proxy m)) todoItemW

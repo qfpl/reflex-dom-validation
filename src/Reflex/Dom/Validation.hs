@@ -77,6 +77,9 @@ data Id = Id {
 
 makeLenses ''Id
 
+idApp :: Text -> Id -> Id
+idApp t i = Id (Just i) t
+
 idToText :: Id -> Text
 idToText (Id mi t) = maybe ""  idToText mi <> t
 

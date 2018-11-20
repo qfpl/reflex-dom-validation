@@ -175,7 +175,7 @@ testCollectionsF :: forall t m e f u.
                     )
                  => Field t m e f TestCollections u TestCollectionsU
 testCollectionsF =
-  Field testCollections testCollectionsU (\i -> Id (Just i) "-tc") (testCollectionsV (Proxy :: Proxy t) (Proxy :: Proxy m)) testCollectionsW
+  Field testCollections testCollectionsU (idApp "-tc") (testCollectionsV (Proxy :: Proxy t) (Proxy :: Proxy m)) testCollectionsW
 
 class HasCollectionTooSmall e where
   _CollectionTooSmall :: Prism' e ()

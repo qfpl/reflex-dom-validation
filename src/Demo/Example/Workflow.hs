@@ -219,7 +219,7 @@ fooNFx :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, HasNotSpecified
       -> Text
       -> Field t m e f (Wrap (Maybe Text)) u ()
 fooNFx o i l =
-  Field o united (\p -> Id (Just p) i) (fooNVx (Proxy :: Proxy t) (Proxy :: Proxy m)) (fooNWx l)
+  Field o united (idApp i) (fooNVx (Proxy :: Proxy t) (Proxy :: Proxy m)) (fooNWx l)
 
 fooN1a :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u ()
 fooN1a = fooNFx n1a "-a" "A"
@@ -268,7 +268,7 @@ fooN1W = workflowWidget [ WorkflowStep "W1" fooN1a []
 fooN1F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
       => Field t m e Nest Nest1 NestU Nest1U
 fooN1F =
-  Field n1 n1u (\i -> Id (Just i) "-1") (fooN1V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN1W
+  Field n1 n1u (idApp "-1") (fooN1V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN1W
 
 fooN2V :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
        => Proxy t
@@ -290,7 +290,7 @@ fooN2W = workflowWidget [ WorkflowStep "W4" fooN2d []
 fooN2F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
       => Field t m e Nest Nest2 NestU Nest2U
 fooN2F =
-  Field n2 n2u (\i -> Id (Just i) "-2") (fooN2V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN2W
+  Field n2 n2u (idApp "-2") (fooN2V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN2W
 
 fooN3V :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
        => Proxy t
@@ -312,7 +312,7 @@ fooN3W = workflowWidget [ WorkflowStep "W7" fooN3g []
 fooN3F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
       => Field t m e Nest Nest3 NestU Nest3U
 fooN3F =
-  Field n3 n3u (\i -> Id (Just i) "-3") (fooN3V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN3W
+  Field n3 n3u (idApp "-3") (fooN3V (Proxy :: Proxy t) (Proxy :: Proxy m)) fooN3W
 
 fooNV :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
       => Proxy t
@@ -358,7 +358,7 @@ instance AsNestU NestU where
 fooNF :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e, AsNest f, AsNestU u)
       => Field t m e f Nest u NestU
 fooNF =
-  Field nest nestU (\i -> Id (Just i) "-n") (fooNV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooNW
+  Field nest nestU (idApp "-n") (fooNV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooNW
 
 data Bar = A | B | C deriving (Eq, Ord, Show, Read, Generic)
 
@@ -491,7 +491,7 @@ fooAF :: forall t m e u.
          )
       => Field t m e Foo (Wrap Day) u ()
 fooAF =
-  Field fooA united (\i -> Id (Just i) "-a") (fooAV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooAW
+  Field fooA united (idApp "-a") (fooAV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooAW
 
 fooBV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotLower e)
       => Proxy t -> Proxy m -> ValidationFn e (Wrap (Set Bar)) (Wrap (Set Bar))
@@ -512,7 +512,7 @@ fooBW =
 fooBF :: forall t m e u. (MonadWidget t m, HasErrorMessage e, HasFooNotLower e)
       => Field t m e Foo (Wrap (Set Bar)) u ()
 fooBF =
-  Field fooB united (\i -> Id (Just i) "-b") (fooBV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooBW
+  Field fooB united (idApp "-b") (fooBV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooBW
 
 fooCV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e)
       => Proxy t -> Proxy m -> ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
@@ -531,7 +531,7 @@ fooCW =
 fooCF :: forall t m e u. (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e)
       => Field t m e Foo (Wrap (Maybe Text)) u ()
 fooCF =
-  Field fooC united (\i -> Id (Just i) "-c") (fooCV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooCW
+  Field fooC united (idApp "-c") (fooCV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooCW
 
 selectOV :: (MonadWidget t m, HasNotSpecified e) => Proxy t -> Proxy m -> ValidationFn e (Wrap Bar) (Wrap Bar)
 selectOV _ _ i (Wrap (Just x)) = Success . Wrap . Identity $ x
@@ -549,7 +549,7 @@ selectOW =
 selectOF :: forall t m e u. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
          => Field t m e SelectDemo (Wrap Bar) u ()
 selectOF =
-  Field sdOne united (\i -> Id (Just i) "-o") (selectOV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectOW
+  Field sdOne united (idApp "-o") (selectOV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectOW
 
 selectMaV :: MonadWidget t m => Proxy t -> Proxy m -> ValidationFn e (Wrap (Maybe Bar)) (Wrap (Maybe Bar))
 selectMaV _ _ i (Wrap (Just mb)) = Success . Wrap . Identity $ mb
@@ -566,7 +566,7 @@ selectMaW =
 
 selectMaF :: forall t m e u. (MonadWidget t m, HasErrorMessage e) => Field t m e SelectDemo (Wrap (Maybe Bar)) u ()
 selectMaF =
-  Field sdMaybe united (\i -> Id (Just i) "-ma") (selectMaV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectMaW
+  Field sdMaybe united (idApp "-ma") (selectMaV (Proxy :: Proxy t) (Proxy :: Proxy m)) selectMaW
 
 fooDV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e, HasNotSpecified e)
       => Proxy t -> Proxy m -> ValidationFn e SelectDemo SelectDemo
@@ -585,7 +585,7 @@ fooDW i dv du des = do
 fooDF :: forall t m e f u. (MonadWidget t m, AsSelectDemo f, HasErrorMessage e, HasFooNotUpper e, HasNotSpecified e)
       => Field t m e f SelectDemo u ()
 fooDF =
-  Field selectDemo united (\i -> Id (Just i) "-d") (fooDV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooDW
+  Field selectDemo united (idApp "-d") (fooDV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooDW
 
 fooV :: forall t m e.
         ( MonadWidget t m
@@ -643,4 +643,4 @@ fooF :: forall t m e f u.
         )
       => Field t m e f Foo u FooU
 fooF =
-  Field foo fooU (\i -> Id (Just i) "-foo") (fooV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooW
+  Field foo fooU (idApp "-foo") (fooV (Proxy :: Proxy t) (Proxy :: Proxy m)) fooW

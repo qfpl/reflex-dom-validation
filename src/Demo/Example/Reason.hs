@@ -54,4 +54,4 @@ reasonW =
 reasonF :: (MonadWidget t m, HasErrorMessage e, AsReason f)
         => Field t m e f (Wrap (Maybe Text)) u ()
 reasonF =
-  Field reason united (\i -> Id (Just i) "-r") reasonV reasonW
+  Field reason united (idApp "-r") reasonV reasonW

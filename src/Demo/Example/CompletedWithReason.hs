@@ -113,4 +113,4 @@ instance AsCompletedWithReason CompletedWithReason where
 completedWithReasonF :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, HasReasonRequiredForIncomplete e, AsCompletedWithReason f)
                      => Field t m e f CompletedWithReason u ()
 completedWithReasonF =
-  Field completedWithReason united (\i -> Id (Just i) "-cwr") (completedWithReasonV (Proxy :: Proxy t) (Proxy :: Proxy m)) completedWithReasonW
+  Field completedWithReason united (idApp "-cwr") (completedWithReasonV (Proxy :: Proxy t) (Proxy :: Proxy m)) completedWithReasonW
