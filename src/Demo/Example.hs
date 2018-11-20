@@ -83,7 +83,7 @@ go :: forall t m. MonadWidget t m => m (Event t (TestCollections Identity))
 go =
   let
     tc = testCollectionsF :: Field t m MyError TestCollections TestCollections TestCollectionsU TestCollectionsU
-    tcu = TestCollectionsU (FooU 0 (NestU 0 (Nest1U 0) (Nest2U 0) (Nest3U 0)))
+    tcu = TestCollectionsU (FooU 0 (NestU 0 (Nest1U 0) (Nest2U 0) (Nest3U 0))) mempty
   in
     wrapUpStorage tc DataTag mempty UiTag tcu $ \d -> do
       -- the version with a validation button

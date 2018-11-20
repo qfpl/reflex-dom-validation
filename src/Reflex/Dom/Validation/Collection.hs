@@ -44,7 +44,7 @@ collectionV ki (Field l _ fi vfn _) i =
  getCompose
 
 gatherCollectionEvents :: forall t e f u k. (Reflex t, Num k, Enum k, Ord k)
-                       => Event t (f Maybe)
+                       => Event t (f Maybe, u)
                        -> Dynamic t (Map k (ValidationWidgetOutput t e f u, Event t ()))
                        -> ValidationWidgetOutput t e (Compose (Map k) f) (Map k u)
 gatherCollectionEvents eAdd dme =
@@ -61,25 +61,32 @@ gatherCollectionEvents eAdd dme =
     eChanges :: Event t (Endo (Compose (Map k) f Maybe))
     eChanges = fmap (fold . Map.mapWithKey mapEndo) . switchDyn . fmap (mergeMap . fmap (_vwoSuccesses . fst)) $ dme
 
-    eUI :: Event t (Endo (Map k u))
-    eUI = fmap (fold . Map.mapWithKey mapEndoU) . switchDyn . fmap (mergeMap . fmap (_vwoUI . fst)) $ dme
+    eChangesU :: Event t (Endo (Map k u))
+    eChangesU = fmap (fold . Map.mapWithKey mapEndoU) . switchDyn . fmap (mergeMap . fmap (_vwoUI . fst)) $ dme
 
     eDeletes :: Event t (Endo (Compose (Map k) f Maybe))
     eDeletes = fmap (\ks -> Endo $ Compose . (\m -> foldr Map.delete m . Map.keys $ ks) . getCompose) . switchDyn . fmap (mergeMap . fmap snd) $ dme
 
+    eDeletesU :: Event t (Endo (Map k u))
+    eDeletesU = fmap (\ks -> Endo $ (\m -> foldr Map.delete m . Map.keys $ ks)) . switchDyn . fmap (mergeMap . fmap snd) $ dme
+
     eAdditions :: Event t (Endo (Compose (Map k) f Maybe))
-    eAdditions = (\v -> Endo $ Compose . (\m -> Map.insert (maybe 0 (succ . fst . fst) . Map.maxViewWithKey $ m) v m) . getCompose) <$> eAdd
+    eAdditions = (\v -> Endo $ Compose . (\m -> Map.insert (maybe 0 (succ . fst . fst) . Map.maxViewWithKey $ m) v m) . getCompose) . fst <$> eAdd
+
+    eAdditionsU :: Event t (Endo (Map k u))
+    eAdditionsU = (\v -> Endo $ (\m -> Map.insert (maybe 0 (succ . fst . fst) . Map.maxViewWithKey $ m) v m)) . snd <$> eAdd
+
   in
     ValidationWidgetOutput
       dFailures
       (eChanges <> eDeletes <> eAdditions)
-      eUI
+      (eChangesU <> eDeletesU <> eAdditionsU)
 
 -- TODO generalize the bootstrap specific bits of this away
 collectionW :: forall t m e f u k. (MonadWidget t m, HasErrorMessage e, Num k, Enum k, Ord k)
       => (Maybe k -> Id -> Id)
       -> Field t m e f f u u
-      -> m (Event t (f Maybe))
+      -> m (Event t (f Maybe, u))
       -> m (Event t ())
       -> ValidationWidget t m e (Compose (Map k) f) (Map k u)
 collectionW ki (Field l lu fi _ fw) addMe deleteMe i dv du des =
@@ -111,7 +118,7 @@ collectionF :: forall t m e f f' u u' k. (MonadWidget t m, NFunctor f', HasError
       -> Lens' u (Map k u')
       -> (Maybe k -> Id -> Id)
       -> Field t m e f' f' u' u'
-      -> m (Event t (f' Maybe))
+      -> m (Event t (f' Maybe, u'))
       -> m (Event t ())
       -> Field t m e f (Compose (Map k) f') u (Map k u')
 collectionF l lu fi f addMe deleteMe =

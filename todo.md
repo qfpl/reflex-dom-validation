@@ -19,7 +19,7 @@ we recursively use workflowWidget or fieldWidget, depending on if we have more s
   - we probably need dropdownView for this to work
   - or just write our own version of dropdown
 
-
+- would be good to have validation information displayed across tabs when one of them does something with invalid data
 
 
 

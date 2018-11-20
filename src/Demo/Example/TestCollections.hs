@@ -52,6 +52,7 @@ import Demo.Example.Workflow
 data TestCollectionsU =
   TestCollectionsU {
     _tcFooU :: FooU
+  , _tcTodoItemsU :: Map Int ()
   } deriving (Eq, Ord, Show, Read, Generic)
 
 instance ToJSON TestCollectionsU where
@@ -61,6 +62,12 @@ makeLenses ''TestCollectionsU
 
 instance AsFooU TestCollectionsU where
   fooU = tcFooU
+
+class AsTodoItemsU u where
+  todoItemsU :: Lens' u (Map Int ())
+
+instance AsTodoItemsU TestCollectionsU where
+  todoItemsU = tcTodoItemsU
 
 data TestCollections f =
   TestCollections {
@@ -111,7 +118,7 @@ testCollectionsV :: forall t m e.
                  -> ValidationFn e TestCollections TestCollections
 testCollectionsV _ _ i tc =
   let
-    tf = togglesF @t @m @e @TestCollections
+    tf = togglesF @t @m @e @TestCollections @TestCollectionsU
   in
     TestCollections <$>
       fieldValidation (completedWithReasonF @t @m) i tc <*>
@@ -177,7 +184,7 @@ class AsTodoItems f where
   todoItems :: Lens' (f g) (Compose (Map Int) TodoItem g)
 
 -- TODO add a text field here to put things through their paces
-togglesF :: (MonadWidget t m, HasErrorMessage e, AsTodoItems f) => Field t m e f (Compose (Map Int) TodoItem) u (Map Int ())
+togglesF :: (MonadWidget t m, HasErrorMessage e, AsTodoItems f, AsTodoItemsU u) => Field t m e f (Compose (Map Int) TodoItem) u (Map Int ())
 togglesF =
   let
     ki Nothing i = Id (Just i) "-ts"
@@ -186,8 +193,8 @@ togglesF =
       divClass "form-group" $ do
         ti <- textInput def
         eClick <- buttonClass "Add" "btn"
-        pure $ (\t -> TodoItem (Wrap (Just False)) (Wrap (Just t))) <$> current (value ti) <@ eClick
+        pure $ (\t -> (TodoItem (Wrap (Just False)) (Wrap (Just t)), ())) <$> current (value ti) <@ eClick
     deleteMe =
       buttonClass "Remove" "btn"
   in
-    collectionF todoItems (lens (const mempty) const) ki todoItemF addMe deleteMe
+    collectionF todoItems todoItemsU ki todoItemF addMe deleteMe
