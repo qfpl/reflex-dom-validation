@@ -68,17 +68,29 @@ textUpdate UpdateOnChange _ e _ =
 textUpdate UpdateOnEnter d _ eK =
   current d <@ fmapMaybe (\n -> guard $ keyCodeLookup (fromIntegral n) == Enter) eK
 
-textWidget :: (MonadWidget t m, HasErrorMessage e)
+class TextChange (r :: Requirement) where
+  toText :: SRequirement r -> Wrap (Requires r Text) Maybe -> Text
+  textChange :: Reflex t => SRequirement r -> Event t Text -> Event t (Endo (Wrap (Requires r Text) Maybe))
+
+instance TextChange 'Required where
+  toText _ = fromMaybe "" . unWrap
+  textChange _ e = Endo . const . Wrap . (\t -> if Text.null t then Nothing else Just t) <$> e
+
+instance TextChange 'Optional where
+  toText _ = fromMaybe "" . join . unWrap
+  textChange _ e = Endo . const . Wrap . Just . (\t -> if Text.null t then Nothing else Just t) <$> e
+
+textWidget :: (MonadWidget t m, HasErrorMessage e, TextChange r)
            => TextWidgetConfig
-           -> ValidationWidget t m e (Wrap (Maybe Text)) u
-textWidget twc i dv _ des = divClass "form-group" $ do
+           -> SRequirement r
+           -> ValidationWidget t m e (Wrap (Requires r Text)) u
+textWidget twc sr i dv _ des = divClass "form-group" $ do
   let it = idToText i
   forM_ (twc ^. twcLabel) $
      elAttr "label" ("for" =: it) . text
 
   let
-    f = fromMaybe "" . join . unWrap
-    dv' = f <$> dv
+    dv' = toText sr <$> dv
   iv <- sample . current $ dv'
   let ev = updated dv'
   ti <- textInput $ def
@@ -91,21 +103,21 @@ textWidget twc i dv _ des = divClass "form-group" $ do
   errorsForId i des
 
   let
-    eChange = Endo . const . Wrap . Just . (\t -> if Text.null t then Nothing else Just t) <$> ev'
+    eChange = textChange sr ev'
 
   pure $ ValidationWidgetOutput (pure mempty) eChange never
 
-textAreaWidget :: (MonadWidget t m, HasErrorMessage e)
+textAreaWidget :: (MonadWidget t m, HasErrorMessage e, TextChange r)
                => TextWidgetConfig
-               -> ValidationWidget t m e (Wrap (Maybe Text)) u
-textAreaWidget twc i dv _ des = divClass "form-group" $ do
+               -> SRequirement r
+               -> ValidationWidget t m e (Wrap (Requires r Text)) u
+textAreaWidget twc sr i dv _ des = divClass "form-group" $ do
   let it = idToText i
   forM_ (twc ^. twcLabel) $
      elAttr "label" ("for" =: it) . text
 
   let
-    f = fromMaybe "" . join . unWrap
-    dv' = f <$> dv
+    dv' = toText sr <$> dv
   iv <- sample . current $ dv'
   let ev = updated dv'
   ta <- textArea $ def
@@ -118,6 +130,6 @@ textAreaWidget twc i dv _ des = divClass "form-group" $ do
   errorsForId i des
 
   let
-    eChange = Endo . const . Wrap . Just . (\t -> if Text.null t then Nothing else Just t) <$> ev'
+    eChange = textChange sr ev'
 
   pure $ ValidationWidgetOutput (pure mempty) eChange never

@@ -49,7 +49,7 @@ reasonV _ _ =
 reasonW :: (MonadWidget t m, HasErrorMessage e)
         => ValidationWidget t m e (Wrap (Maybe Text)) u
 reasonW =
-  textWidget (TextWidgetConfig (Just "Reason") UpdateOnChange)
+  textWidget (TextWidgetConfig (Just "Reason") UpdateOnChange) SOptional
 
 reasonF :: (MonadWidget t m, HasErrorMessage e, AsReason f)
         => Field t m e f (Wrap (Maybe Text)) u ()

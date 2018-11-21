@@ -29,7 +29,6 @@ import Text.Read (readMaybe)
 import GHC.Generics (Generic)
 
 import Control.Lens
-import Control.Error
 
 import Data.Time.Calendar
 import Data.Colour
@@ -212,7 +211,7 @@ fooNWx :: (MonadWidget t m, HasErrorMessage e)
       => Text
       -> ValidationWidget t m e (Wrap (Maybe Text)) u
 fooNWx l =
-  textWidget (TextWidgetConfig (Just l) UpdateOnChange)
+  textWidget (TextWidgetConfig (Just l) UpdateOnChange) SOptional
 
 fooNFx :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
       => (forall g. Lens' (f g) (Wrap (Maybe Text) g))
@@ -503,7 +502,7 @@ fooCV _ _ =
 fooCW :: (MonadWidget t m, HasErrorMessage e)
       => ValidationWidget t m e (Wrap (Maybe Text)) u
 fooCW =
-  textWidget (TextWidgetConfig (Just "C") UpdateOnChange)
+  textWidget (TextWidgetConfig (Just "C") UpdateOnChange) SOptional
 
 fooCF :: (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e)
       => Field t m e Foo (Wrap (Maybe Text)) u ()

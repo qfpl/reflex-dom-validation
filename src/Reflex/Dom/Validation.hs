@@ -10,6 +10,7 @@ Portability : non-portable
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -148,6 +149,17 @@ instance Monoid1 f => Monoid (Wrap a f) where
 instance NFunctor (Wrap a) where
   nmap f (Wrap g) = Wrap (f g)
 
+data Requirement = Required | Optional
+  deriving (Eq, Ord, Show, Read)
+
+type family Requires (x :: Requirement) a where
+  Requires 'Required a = a
+  Requires 'Optional a = Maybe a
+
+data SRequirement (x :: Requirement) where
+  SRequired :: SRequirement 'Required
+  SOptional :: SRequirement 'Optional
+
 type ValidationFn e f f' =
   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
 
@@ -202,6 +214,10 @@ fieldWidget f@(Field l lu fi _ w) i dv du de = do
 
 unwrapV :: Wrap a Identity -> a
 unwrapV = runIdentity . unWrap
+
+optional :: ValidationFn e (Wrap (Maybe a)) (Wrap (Maybe a))
+optional _  =
+  Success . Wrap . Identity . join . unWrap
 
 required :: HasNotSpecified e => ValidationFn e (Wrap a) (Wrap a)
 required i (Wrap m) =
