@@ -156,9 +156,9 @@ type family Requires (x :: Requirement) a where
   Requires 'Required a = a
   Requires 'Optional a = Maybe a
 
-data SRequirement (x :: Requirement) where
-  SRequired :: SRequirement 'Required
-  SOptional :: SRequirement 'Optional
+data SRequirement (x :: Requirement) a where
+  SRequired :: a -> SRequirement 'Required a
+  SOptional :: SRequirement 'Optional a
 
 type ValidationFn e f f' =
   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)

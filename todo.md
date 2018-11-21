@@ -1,5 +1,6 @@
 
-- divide text / textArea / any others into optional or required
+- divide radio into optional or required
+  - possibly rework some of Select into this state so that it doesn't get left behind
 
 - add the ability for custom attributes for all of the bootstrap widgets
 - complete HTML5 inputs
@@ -7,11 +8,14 @@
 - the ability to separate out the workflow controls from the workflow forms
   - so we can have multiple dropdowns in a row for nested workflows
 
-need to gather up headers and footers
-we recursively use workflowWidget or fieldWidget, depending on if we have more steps to go
+      need to gather up headers and footers
+      we recursively use workflowWidget or fieldWidget, depending on if we have more steps to go
 
 - if validation is required to move forward, we need to validate everything between the current index and the new index, and stop at the first one that fails to validate
   - either that or we can't use dropdowns for control like that
+  
+  
+
 
 - check the ability to store lists of Foo (Last a) so that we can look at the history of changes over time
   - possibly have a save button, or link this to the validation button / steps?

@@ -69,11 +69,11 @@ textUpdate UpdateOnEnter d _ eK =
   current d <@ fmapMaybe (\n -> guard $ keyCodeLookup (fromIntegral n) == Enter) eK
 
 class TextChange (r :: Requirement) where
-  toText :: SRequirement r -> Wrap (Requires r Text) Maybe -> Text
-  textChange :: Reflex t => SRequirement r -> Event t Text -> Event t (Endo (Wrap (Requires r Text) Maybe))
+  toText :: SRequirement r Text -> Wrap (Requires r Text) Maybe -> Text
+  textChange :: Reflex t => SRequirement r Text -> Event t Text -> Event t (Endo (Wrap (Requires r Text) Maybe))
 
 instance TextChange 'Required where
-  toText _ = fromMaybe "" . unWrap
+  toText (SRequired t) = fromMaybe t . unWrap
   textChange _ e = Endo . const . Wrap . (\t -> if Text.null t then Nothing else Just t) <$> e
 
 instance TextChange 'Optional where
@@ -82,7 +82,7 @@ instance TextChange 'Optional where
 
 textWidget :: (MonadWidget t m, HasErrorMessage e, TextChange r)
            => TextWidgetConfig
-           -> SRequirement r
+           -> SRequirement r Text
            -> ValidationWidget t m e (Wrap (Requires r Text)) u
 textWidget twc sr i dv _ des = divClass "form-group" $ do
   let it = idToText i
@@ -109,7 +109,7 @@ textWidget twc sr i dv _ des = divClass "form-group" $ do
 
 textAreaWidget :: (MonadWidget t m, HasErrorMessage e, TextChange r)
                => TextWidgetConfig
-               -> SRequirement r
+               -> SRequirement r Text
                -> ValidationWidget t m e (Wrap (Requires r Text)) u
 textAreaWidget twc sr i dv _ des = divClass "form-group" $ do
   let it = idToText i

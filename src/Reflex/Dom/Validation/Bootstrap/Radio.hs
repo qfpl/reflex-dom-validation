@@ -6,6 +6,8 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Reflex.Dom.Validation.Bootstrap.Radio (
@@ -14,13 +16,15 @@ module Reflex.Dom.Validation.Bootstrap.Radio (
   , radioWidget
   ) where
 
-import Control.Monad (forM, forM_)
+import Control.Monad (join, forM, forM_)
 import Data.Bool (bool)
+import Data.Maybe (fromMaybe)
 import Data.Monoid (Endo(..))
 
 import Control.Lens
 
 import Data.Text (Text)
+import Data.Map (Map)
 
 import Reflex.Dom.Core
 
@@ -46,10 +50,23 @@ data RadioWidgetConfig c =
 
 makeLenses ''RadioWidgetConfig
 
-radioWidget :: (MonadWidget t m, HasErrorMessage e, Eq c)
+class RadioChange (r :: Requirement) where
+  toC :: SRequirement r c -> Wrap (Requires r c) Maybe -> Maybe c
+  cChange :: Reflex t => SRequirement r c -> Event t (Maybe c) -> Event t (Endo (Wrap (Requires r c) Maybe))
+
+instance RadioChange 'Required where
+  toC (SRequired c) = Just . fromMaybe c . unWrap
+  cChange _ e = fmapMaybe (fmap $ Endo . const . Wrap . Just) e
+
+instance RadioChange 'Optional where
+  toC _ = join . unWrap
+  cChange _ e = Endo . const . Wrap . Just <$> e
+
+radioWidget :: (MonadWidget t m, HasErrorMessage e, Eq c, RadioChange r)
             => RadioWidgetConfig c
-            -> ValidationWidget t m e (Wrap c) u
-radioWidget rwc i dv _ des = divClass "form-group" $ do
+            -> SRequirement r c
+            -> ValidationWidget t m e (Wrap (Requires r c)) u
+radioWidget rwc sr i dv _ des = divClass "form-group" $ do
   let
     it = idToText i
     cls = "form-check " <> bool " form-check-inline" "" (rwc ^. rwcStacked)
@@ -61,7 +78,7 @@ radioWidget rwc i dv _ des = divClass "form-group" $ do
   es <- wrapGroup . forM (rwc ^. rwcValues) $ \(RadioOptionConfig kl ki v) -> divClass cls $ do
     let
       itt = it <> ki
-      f = (== Just v) . unWrap
+      f = (== Just v) . toC sr
       dv' = f <$> dv
     iv <- sample . current $ dv'
     let ev = updated dv'
@@ -79,6 +96,6 @@ radioWidget rwc i dv _ des = divClass "form-group" $ do
     pure $ bool Nothing (Just v) <$> ev'
 
   let
-    eChange = Endo . const . Wrap <$> leftmost es
+    eChange = cChange sr . leftmost $ es
 
   pure $ ValidationWidgetOutput (pure mempty) eChange never
