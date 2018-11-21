@@ -9,6 +9,8 @@ Portability : non-portable
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonoLocalBinds #-}
@@ -23,7 +25,6 @@ module Demo.Example.CompletedWithReason (
 import GHC.Generics (Generic)
 
 import Data.Semigroup(Semigroup(..))
-import Data.Proxy(Proxy(..))
 
 import Control.Lens
 
@@ -69,48 +70,40 @@ instance AsCompleted CompletedWithReason where
 instance AsReason CompletedWithReason where
   reason = cwrReason
 
-completedWithReasonV :: forall t m e. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, HasReasonRequiredForIncomplete e)
-                     => Proxy t -> Proxy m -> ValidationFn e CompletedWithReason CompletedWithReason
-completedWithReasonV _ _ i cr =
-  let
-    fC = completedF :: Field t m e CompletedWithReason (Wrap Bool) () ()
-    fR = reasonF :: Field t m e CompletedWithReason (Wrap (Maybe Text)) () ()
-    f c r =
-      if unwrapV c == False && unwrapV r == Nothing
-      then Failure . pure . WithId (fieldId fR i) $ _ReasonRequiredForIncomplete # ()
-      else Success $ CompletedWithReason c r
-  in
-    fieldValidation fC i cr `bindValidation` \c ->
-    fieldValidation fR i cr `bindValidation` \r ->
-    f c r
-
-completedWithReasonW :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
-                     => ValidationWidget t m e CompletedWithReason u
-completedWithReasonW i dv du  de = do
-  eC <- fieldWidget completedF i dv du de
-  eR <- fieldWidget reasonF i dv du de
-  pure $ eC <> eR
-
-  -- let
-  --   wComplete = Workflow $ do
-  --     e <- fieldWidget completedF i dv de
-  --     eNext <- buttonClass "Next" "btn"
-  --     pure (e, wReason <$ eNext)
-  --   wReason = Workflow $ do
-  --     e <- fieldWidget reasonF i dv de
-  --     eBack <- buttonClass "Back" "btn"
-  --     pure (e, wComplete <$ eBack)
-
-  -- de <- workflow wComplete
-  -- pure . switchDyn $ de
-
 class AsCompletedWithReason f where
   completedWithReason :: Lens' (f g) (CompletedWithReason g)
 
 instance AsCompletedWithReason CompletedWithReason where
   completedWithReason = id
 
-completedWithReasonF :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, HasReasonRequiredForIncomplete e, AsCompletedWithReason f)
+completedWithReasonF :: forall t m e f u.
+                     ( MonadWidget t m
+                     , HasErrorMessage e
+                     , HasNotSpecified e
+                     , HasReasonRequiredForIncomplete e
+                     , AsCompletedWithReason f
+                     )
                      => Field t m e f CompletedWithReason u ()
 completedWithReasonF =
-  Field completedWithReason united (idApp "-cwr") (completedWithReasonV (Proxy :: Proxy t) (Proxy :: Proxy m)) completedWithReasonW
+  let
+    fC =
+      completedF :: Field t m e CompletedWithReason (Wrap Bool) () ()
+    fR =
+      reasonF :: Field t m e CompletedWithReason (Wrap (Maybe Text)) () ()
+
+    f i c r =
+      if unwrapV c == False && unwrapV r == Nothing
+      then Failure . pure . WithId (fieldId fR i) $ _ReasonRequiredForIncomplete # ()
+      else Success $ CompletedWithReason c r
+
+    completedWithReasonV i cr =
+      fieldValidation fC i cr `bindValidation` \c ->
+      fieldValidation fR i cr `bindValidation` \r ->
+      f i c r
+
+    completedWithReasonW i dv du  de = do
+      eC <- fieldWidget completedF i dv du de
+      eR <- fieldWidget reasonF i dv du de
+      pure $ eC <> eR
+  in
+    Field completedWithReason united (idApp "-cwr") completedWithReasonV completedWithReasonW

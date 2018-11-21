@@ -10,6 +10,8 @@ Portability : non-portable
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 module Demo.Example.TestCollections (
@@ -23,7 +25,6 @@ module Demo.Example.TestCollections (
 
 import Data.Functor.Compose(Compose(..))
 import Data.Semigroup (Semigroup(..))
-import Data.Proxy (Proxy(..))
 
 import GHC.Generics (Generic)
 
@@ -100,51 +101,6 @@ instance AsTodoItems TestCollections where
 instance AsFoo TestCollections where
   foo = tcFoo
 
-testCollectionsV :: forall t m e.
-                 ( MonadWidget t m
-                 , Eq e
-                 , HasErrorMessage e
-                 , HasNotSpecified e
-                 , HasReasonRequiredForIncomplete e
-                 , HasCollectionTooSmall e
-                 , HasFooNotDigits e
-                 , HasFooNotLower e
-                 , HasFooNotUpper e
-                 , HasValidityError e
-                 , HasBadWorkflowIndex e
-                 )
-                 => Proxy t
-                 -> Proxy m
-                 -> ValidationFn e TestCollections TestCollections
-testCollectionsV _ _ i tc =
-  let
-    tf = togglesF @t @m @e @TestCollections @TestCollectionsU
-  in
-    TestCollections <$>
-      fieldValidation (completedWithReasonF @t @m) i tc <*>
-      ((fieldValidation tf i tc) `bindValidation`
-        (\(Compose xs) -> if length xs < 2
-                then (Failure . pure . WithId (fieldId tf i) $ _CollectionTooSmall # ())
-                else Success xs)) <*>
-     fieldValidation (fooF @t @m @e @TestCollections @TestCollectionsU) i tc
-
-testCollectionsW :: ( MonadWidget t m
-                    , Eq e
-                    , HasErrorMessage e
-                    , HasNotSpecified e
-                    , HasReasonRequiredForIncomplete e
-                    , HasFooNotDigits e
-                    , HasFooNotLower e
-                    , HasFooNotUpper e
-                    , HasValidityError e
-                    , HasBadWorkflowIndex e
-                    )
-                 => ValidationWidget t m e TestCollections TestCollectionsU
-testCollectionsW i dv du de =
-  (\x y z -> x <> y <> z) <$>
-    fieldWidget completedWithReasonF i dv du de <*>
-    fieldWidget togglesF i dv du de <*>
-    fieldWidget fooF i dv du de
 
 class AsTestCollections f where
   testCollections :: Lens' (f g) (TestCollections g)
@@ -175,7 +131,24 @@ testCollectionsF :: forall t m e f u.
                     )
                  => Field t m e f TestCollections u TestCollectionsU
 testCollectionsF =
-  Field testCollections testCollectionsU (idApp "-tc") (testCollectionsV (Proxy :: Proxy t) (Proxy :: Proxy m)) testCollectionsW
+  let
+    tf =
+      togglesF @t @m @e @TestCollections @TestCollectionsU
+    testCollectionsV i tc =
+      TestCollections <$>
+        fieldValidation (completedWithReasonF @t @m) i tc <*>
+        ((fieldValidation tf i tc) `bindValidation`
+          (\(Compose xs) -> if length xs < 2
+                  then (Failure . pure . WithId (fieldId tf i) $ _CollectionTooSmall # ())
+                  else Success xs)) <*>
+      fieldValidation (fooF @t @m @e @TestCollections @TestCollectionsU) i tc
+    testCollectionsW i dv du de =
+      (\x y z -> x <> y <> z) <$>
+        fieldWidget completedWithReasonF i dv du de <*>
+        fieldWidget togglesF i dv du de <*>
+        fieldWidget fooF i dv du de
+  in
+    Field testCollections testCollectionsU (idApp "-tc") testCollectionsV testCollectionsW
 
 class HasCollectionTooSmall e where
   _CollectionTooSmall :: Prism' e ()

@@ -35,7 +35,7 @@ import Data.List (nub)
 import Data.Semigroup (Semigroup(..))
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Endo(..))
-import Data.Proxy (Proxy(..))
+
 import GHC.Generics (Generic, Generic1)
 
 import Control.Monad.Trans (liftIO, lift)

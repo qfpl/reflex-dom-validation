@@ -8,6 +8,8 @@ Portability : non-portable
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MonoLocalBinds #-}
@@ -19,7 +21,6 @@ module Demo.Example.TodoItem (
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Endo(..))
 import Data.Semigroup (Semigroup(..))
-import Data.Proxy (Proxy(..))
 
 import GHC.Generics (Generic)
 
@@ -83,12 +84,12 @@ completeF = Field tiComplete united (idApp "-c") toggleV toggleW
 
 -- TODO make this an error if it is empty
 itemV :: ValidationFn e (Wrap Text) (Wrap Text)
-itemV i mv =
-  Success . Wrap . Identity . fromMaybe "" . unWrap $ mv
+itemV _ =
+  Success . Wrap . Identity . fromMaybe "" . unWrap
 
 itemW :: MonadWidget t m
       => ValidationWidget t m e (Wrap Text) u
-itemW i dv _ _ = do
+itemW _ dv _ _ = do
   let
     f = fromMaybe "" . unWrap
     ev = f <$> updated dv
@@ -105,20 +106,15 @@ itemW i dv _ _ = do
 itemF :: MonadWidget t m => Field t m e TodoItem (Wrap Text) u ()
 itemF = Field tiItem united (idApp "-i") itemV itemW
 
-todoItemV :: forall t m e. MonadWidget t m => Proxy t -> Proxy m -> ValidationFn e TodoItem TodoItem
-todoItemV _ _ i mti =
-  TodoItem <$> fieldValidation (completeF @t @m) i mti <*> fieldValidation (itemF @t @m) i mti
-
-todoItemW :: (MonadWidget t m, HasErrorMessage e)
-          => ValidationWidget t m e TodoItem u
-todoItemW i dv du des = do
-
-  ValidationWidgetOutput dCompleteE eComplete eCompleteU <- fieldWidget completeF i dv du des
-  ValidationWidgetOutput dItemE eItem eItemU <- fieldWidget itemF i dv du des
-
-  errorsForId i des
-
-  pure $ ValidationWidgetOutput (dCompleteE <> dItemE) (eComplete <> eItem) (eCompleteU <> eItemU)
-
 todoItemF :: forall t m e u. (MonadWidget t m, HasErrorMessage e) => Field t m e TodoItem TodoItem u u
-todoItemF = Field id id (idApp "-ti") (todoItemV (Proxy :: Proxy t) (Proxy :: Proxy m)) todoItemW
+todoItemF =
+  let
+    todoItemV i mti =
+      TodoItem <$> fieldValidation (completeF @t @m) i mti <*> fieldValidation (itemF @t @m) i mti
+    todoItemW i dv du des = do
+      ValidationWidgetOutput dCompleteE eComplete eCompleteU <- fieldWidget completeF i dv du des
+      ValidationWidgetOutput dItemE eItem eItemU <- fieldWidget itemF i dv du des
+      errorsForId i des
+      pure $ ValidationWidgetOutput (dCompleteE <> dItemE) (eComplete <> eItem) (eCompleteU <> eItemU)
+  in
+    Field id id (idApp "-ti") todoItemV todoItemW
