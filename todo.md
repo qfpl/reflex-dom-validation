@@ -1,7 +1,10 @@
 
-
 - add the ability for custom attributes for all of the bootstrap widgets
-- complete HTML5 inputs
+
+- fix up collection handling
+  - something weird is going on with addition of items
+  - separate out things more so we have don't have Bootstrap stuff in Collection.hs
+    - the template approach could probably be used here
 
 - the ability to separate out the workflow controls from the workflow forms
   - so we can have multiple dropdowns in a row for nested workflows
@@ -12,6 +15,7 @@
 - if validation is required to move forward, we need to validate everything between the current index and the new index, and stop at the first one that fails to validate
   - either that or we can't use dropdowns for control like that
   
+- complete HTML5 inputs
   
 
 - check the ability to store lists of Foo (Last a) so that we can look at the history of changes over time
@@ -22,11 +26,6 @@
   - rework Select to use required/optional
   - we probably need dropdownView for this to work
   - or just write our own version of dropdown
-
-- would be good to have validation information displayed across tabs when one of them does something with invalid data
-
-
-
 
 
 

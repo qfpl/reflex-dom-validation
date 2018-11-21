@@ -39,7 +39,7 @@ completeW =
   radioWidget (RadioWidgetConfig (Just "Complete") False
                [ RadioOptionConfig "Complete" "-true" True
                , RadioOptionConfig "Incomplete" "-false" False
-               ]) (SRequired True)
+               ]) (SRequired False)
 
 completedF :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, AsCompleted f)
            => Field t m e f (Wrap Bool) u ()

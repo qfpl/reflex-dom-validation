@@ -74,9 +74,12 @@ data Id = Id {
     _idParent :: Maybe Id
   , _idTag :: Text
   }
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Generic)
 
 makeLenses ''Id
+
+instance ToJSON Id where
+instance FromJSON Id where
 
 idApp :: Text -> Id -> Id
 idApp t i = Id (Just i) t
@@ -90,9 +93,12 @@ matchOrDescendant i1 i2 =
   maybe False (matchOrDescendant i1) (view idParent i2)
 
 data WithId a = WithId { _wiId :: Id, _wiValue :: a }
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic)
 
 makeLenses ''WithId
+
+instance ToJSON a => ToJSON (WithId a) where
+instance FromJSON a => FromJSON (WithId a) where
 
 hasMatchingErrors :: Id -> [WithId e] -> Bool
 hasMatchingErrors i = any ((== i) . view wiId)
@@ -256,9 +262,10 @@ wrapUpStorage :: (MonadWidget t m, Eq e, GKey k, GCompare k, ToJSONTag k Identit
               -> f Maybe
               -> k u
               -> u
+              -> k [WithId e]
               -> (Dynamic t (f Maybe) -> m (Event t (f Maybe)))
               -> m (Event t (f Identity))
-wrapUpStorage f k ini kU iniU v = runStorageT LocalStorage $ do
+wrapUpStorage f k ini kU iniU kE v = runStorageT LocalStorage $ do
   initializeTag k ini
   dTag <- askStorageTagDef k ini
   iTag <- sample . current $ dTag
@@ -267,7 +274,11 @@ wrapUpStorage f k ini kU iniU v = runStorageT LocalStorage $ do
   duTag <- askStorageTagDef kU iniU
   iuTag <- sample . current $ duTag
 
-  (eM, eI, eU) <- lift $ mdo
+  initializeTag kE []
+  deTag <- askStorageTagDef kE []
+  ieTag <- sample . current $ deTag
+
+  (eM, eI, eU, eE) <- lift $ mdo
     let i = Id Nothing "top"
 
     dcr <- foldDyn ($) iTag . leftmost $ [fmap appEndo eFn, const <$> updated dTag]
@@ -277,17 +288,15 @@ wrapUpStorage f k ini kU iniU v = runStorageT LocalStorage $ do
       (\x y -> nub $ x ++ y) <$> des <*> de
     eV <- v dcr
     let (eFailure, eSuccess) = fanEither $ toEither . fieldValidation f i <$> eV
-    -- TODO printing these failures would be interesting
-    des :: Dynamic t [WithId e] <- holdDyn [] . leftmost $
-      [ NonEmpty.toList <$> eFailure
-      , [] <$ eSuccess
-      ]
+    let eE = leftmost [NonEmpty.toList <$> eFailure, [] <$ eSuccess]
+    des :: Dynamic t [WithId e] <- holdDyn ieTag . leftmost $ [eE , updated deTag]
 
-    pure (eFn, eSuccess, eU)
+    pure (eFn, eSuccess, eU, eE)
 
   tellStorageInsert k $ flip appEndo <$> current dTag <@> eM
   -- tellStorageInsert k $ nmap (Just . runIdentity) <$> eI
   tellStorageInsert kU $ flip appEndo <$> current duTag <@> eU
+  tellStorageInsert kE eE
 
   pure eI
 

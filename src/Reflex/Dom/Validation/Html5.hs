@@ -6,6 +6,7 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Reflex.Dom.Validation.Html5 where
@@ -13,8 +14,12 @@ module Reflex.Dom.Validation.Html5 where
 import Control.Monad (join)
 import Text.Read (readMaybe)
 
+import GHC.Generics (Generic)
+
 import Control.Lens
 import Control.Error
+
+import Data.Aeson (ToJSON, FromJSON)
 
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -51,7 +56,10 @@ data ValidityError =
   | TooShort
   | TypeMismatch
   | ValueMissing
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Generic)
+
+instance ToJSON ValidityError where
+instance FromJSON ValidityError where
 
 makePrisms ''ValidityError
 

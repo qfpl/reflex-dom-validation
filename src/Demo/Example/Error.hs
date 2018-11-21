@@ -6,10 +6,15 @@ Stability   : experimental
 Portability : non-portable
 -}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Demo.Example.Error (
     MyError(..)
   ) where
+
+import GHC.Generics (Generic)
+
+import Data.Aeson (ToJSON, FromJSON)
 
 import Control.Lens.TH
 
@@ -32,7 +37,10 @@ data MyError =
   | MEFooNotUpper
   | MEValidity ValidityError
   | MEBadWorkflowIndex Int
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Generic)
+
+instance ToJSON MyError where
+instance FromJSON MyError where
 
 makePrisms ''MyError
 

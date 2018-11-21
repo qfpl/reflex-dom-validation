@@ -44,10 +44,12 @@ import Demo.Example.Error
 data ExampleTag a where
   DataTag :: ExampleTag (TestCollections Maybe)
   UiTag :: ExampleTag TestCollectionsU
+  ErrorsTag :: ExampleTag [WithId MyError]
 
 instance GEq ExampleTag where
   geq DataTag DataTag = Just Refl
   geq UiTag UiTag = Just Refl
+  geq ErrorsTag ErrorsTag = Just Refl
   geq _ _ = Nothing
 
 instance GCompare ExampleTag where
@@ -55,32 +57,42 @@ instance GCompare ExampleTag where
   gcompare DataTag _ = GLT
   gcompare _ DataTag = GGT
   gcompare UiTag UiTag = GEQ
+  gcompare UiTag _ = GLT
+  gcompare _ UiTag = GGT
+  gcompare ErrorsTag ErrorsTag = GEQ
 
 instance GShow ExampleTag where
   gshowsPrec _p DataTag = showString "Data"
   gshowsPrec _p UiTag = showString "Ui"
+  gshowsPrec _p ErrorsTag = showString "Error"
 
 instance ShowTag ExampleTag Identity where
   showTaggedPrec DataTag = showsPrec
   showTaggedPrec UiTag = showsPrec
+  showTaggedPrec ErrorsTag = showsPrec
 
 instance GKey ExampleTag where
   toKey (This DataTag) = "data"
   toKey (This UiTag) = "ui"
+  toKey (This ErrorsTag) = "error"
+
   fromKey t =
     case t of
       "data" -> Just (This DataTag)
       "ui" -> Just (This UiTag)
+      "error" -> Just (This ErrorsTag)
       _ -> Nothing
-  keys _ = [This DataTag, This UiTag]
+  keys _ = [This DataTag, This UiTag, This ErrorsTag]
 
 instance ToJSONTag ExampleTag Identity where
   toJSONTagged DataTag (Identity x) = toJSON x
   toJSONTagged UiTag (Identity x) = toJSON x
+  toJSONTagged ErrorsTag (Identity x) = toJSON x
 
 instance FromJSONTag ExampleTag Identity where
   parseJSONTagged DataTag x = Identity <$> parseJSON x
   parseJSONTagged UiTag x = Identity <$> parseJSON x
+  parseJSONTagged ErrorsTag x = Identity <$> parseJSON x
 
 go :: forall t m. MonadWidget t m => m (Event t (TestCollections Identity))
 go =
@@ -88,7 +100,7 @@ go =
     tc = testCollectionsF :: Field t m MyError TestCollections TestCollections TestCollectionsU TestCollectionsU
     tcu = TestCollectionsU (FooU 0 (NestU 0 (Nest1U 0) (Nest2U 0) (Nest3U 0))) mempty
   in
-    wrapUpStorage tc DataTag mempty UiTag tcu $ \d -> divClass "row" $ do
+    wrapUpStorage tc DataTag mempty UiTag tcu ErrorsTag $ \d -> divClass "row" $ do
       -- the version with a validation button
       eValidate <- divClass "col" $ buttonClass "Validate" "btn"
 
