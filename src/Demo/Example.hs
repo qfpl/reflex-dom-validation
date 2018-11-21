@@ -18,6 +18,9 @@ import Data.Functor.Identity (Identity(..))
 
 import Reflex.Dom.Core
 
+import qualified Data.Text.Encoding as Encoding
+import qualified Data.ByteString.Lazy as LBS
+
 import Reflex.Dom.Validation
 import Bootstrap
 
@@ -27,7 +30,7 @@ import Data.Dependent.Sum (ShowTag(..))
 import Data.GADT.Show
 import Data.GADT.Compare
 import Data.GADT.Aeson
-import Data.Aeson (ToJSON(..), FromJSON(..))
+import Data.Aeson (encode, ToJSON(..), FromJSON(..))
 
 import Demo.Example.CompletedWithReason
 import Demo.Example.TestCollections
@@ -85,9 +88,15 @@ go =
     tc = testCollectionsF :: Field t m MyError TestCollections TestCollections TestCollectionsU TestCollectionsU
     tcu = TestCollectionsU (FooU 0 (NestU 0 (Nest1U 0) (Nest2U 0) (Nest3U 0))) mempty
   in
-    wrapUpStorage tc DataTag mempty UiTag tcu $ \d -> do
+    wrapUpStorage tc DataTag mempty UiTag tcu $ \d -> divClass "row" $ do
       -- the version with a validation button
-      eValidate <- buttonClass "Validate" "btn"
+      eValidate <- divClass "col" $ buttonClass "Validate" "btn"
+
+      let
+        prepare = ("data:application/json," <>) . Encoding.decodeUtf8 . LBS.toStrict . encode
+      elDynAttr "a" (((("href" =:) . prepare) <$> d) <> pure ("download" =: "save.json" <> "class" =: "btn btn-secondary")) $
+        text "Save"
+
       pure (current d <@ eValidate)
 
     -- the version where every change causes a validation
