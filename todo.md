@@ -1,6 +1,4 @@
 
-- divide radio into optional or required
-  - possibly rework some of Select into this state so that it doesn't get left behind
 
 - add the ability for custom attributes for all of the bootstrap widgets
 - complete HTML5 inputs
@@ -16,12 +14,12 @@
   
   
 
-
 - check the ability to store lists of Foo (Last a) so that we can look at the history of changes over time
   - possibly have a save button, or link this to the validation button / steps?
   - possibly only on a save button or a workflow change?
 
 - look at adding setValue to Select so we can work with reflex-dom-storage
+  - rework Select to use required/optional
   - we probably need dropdownView for this to work
   - or just write our own version of dropdown
 

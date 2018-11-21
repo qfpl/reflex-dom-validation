@@ -56,7 +56,7 @@ class RadioChange (r :: Requirement) where
 
 instance RadioChange 'Required where
   toC (SRequired c) = Just . fromMaybe c . unWrap
-  cChange _ e = fmapMaybe (fmap $ Endo . const . Wrap . Just) e
+  cChange (SRequired c) e = Endo . const . Wrap . Just . fromMaybe c <$> e
 
 instance RadioChange 'Optional where
   toC _ = join . unWrap
