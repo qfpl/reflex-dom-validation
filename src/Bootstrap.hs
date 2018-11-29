@@ -31,8 +31,6 @@ import Data.Foldable (traverse_)
 import Data.Maybe (fromMaybe)
 import Data.Semigroup ((<>))
 
-import Control.Lens
-
 import Data.Text (Text)
 
 import Data.Map (Map)

@@ -14,15 +14,14 @@ module Demo.Example (
     go
   ) where
 
-import Data.Functor.Identity (Identity(..))
-
 import Reflex.Dom.Core
 
 import qualified Data.Text.Encoding as Encoding
 import qualified Data.ByteString.Lazy as LBS
 
-import Reflex.Dom.Validation
 import Bootstrap
+import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Id
 
 import Data.Functor.Identity (Identity(..))
 import Data.Dependent.Map (Some(..))
@@ -32,7 +31,6 @@ import Data.GADT.Compare
 import Data.GADT.Aeson
 import Data.Aeson (encode, ToJSON(..), FromJSON(..))
 
-import Demo.Example.CompletedWithReason
 import Demo.Example.TestCollections
 import Demo.Example.Workflow
 import Demo.Example.Error

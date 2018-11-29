@@ -38,6 +38,9 @@ import Data.Validation
 import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Error
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Wrap
 
 import Data.Time.Calendar
 import Data.Time.Format

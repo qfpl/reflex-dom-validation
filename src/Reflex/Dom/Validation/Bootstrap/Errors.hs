@@ -21,11 +21,12 @@ import Control.Lens
 
 import Reflex.Dom.Core
 
-import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Error
 
 errorClass :: Reflex t => Id -> Dynamic t [WithId e] -> Dynamic t Text
 errorClass i des =
-  bool "is-valid" "is-invalid" . hasMatchingErrors i <$> des
+  bool "is-valid" "is-invalid" . hasMatchingId i <$> des
 
 errorsForId :: (MonadWidget t m, HasErrorMessage e)
             => Id -> Dynamic t [WithId e] -> m ()

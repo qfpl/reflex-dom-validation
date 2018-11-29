@@ -14,6 +14,11 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Reflex.Dom.Validation
+                     , Reflex.Dom.Validation.Classes
+                     , Reflex.Dom.Validation.Error
+                     , Reflex.Dom.Validation.Id
+                     , Reflex.Dom.Validation.Requires
+                     , Reflex.Dom.Validation.Wrap
                      , Reflex.Dom.Validation.Collection
                      , Reflex.Dom.Validation.Workflow
                      , Reflex.Dom.Validation.Html5

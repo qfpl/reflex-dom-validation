@@ -48,6 +48,11 @@ import Reflex.Dom.Core
 
 import Bootstrap
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Classes
+import Reflex.Dom.Validation.Error
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Requires
+import Reflex.Dom.Validation.Wrap
 import Reflex.Dom.Validation.Html5
 import Reflex.Dom.Validation.Workflow
 import Reflex.Dom.Validation.Bootstrap.Text

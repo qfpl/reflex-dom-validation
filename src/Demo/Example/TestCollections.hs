@@ -40,6 +40,11 @@ import Data.Validation
 import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Classes
+import Reflex.Dom.Validation.Error
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Requires
+import Reflex.Dom.Validation.Wrap
 import Reflex.Dom.Validation.Collection
 import Reflex.Dom.Validation.Html5
 import Reflex.Dom.Validation.Workflow

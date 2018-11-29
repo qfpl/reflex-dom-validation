@@ -21,6 +21,7 @@ import Control.Lens.TH
 import qualified Data.Text as Text
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Error
 import Reflex.Dom.Validation.Html5
 import Reflex.Dom.Validation.Workflow
 

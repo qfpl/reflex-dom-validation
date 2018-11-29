@@ -1,4 +1,19 @@
 
+- consider breaking field up
+  - something for the lens to the core data and the id transformer
+  - something for the lens to the widget data and the actual widget
+  - something for the validation function (and perhaps a lens to extra context data for the validation)
+  - motivation: if we have 2 completion fields in the one widget, it would be nice to have 
+    lightweight ways to use existing fields (like being able to replace the lens and id transformer)
+    
+capturing constraints for the widget would be good
+
+doing something that makes writing fields for collections easier would also be good
+- are we then dealing with a Traversal / IxTraversal instead of a lens?
+
+
+
+
 - add the ability for custom attributes for all of the bootstrap widgets
 
 - fix up collection handling

@@ -13,19 +13,17 @@ module Demo.Example.Completed (
   , completedF
   ) where
 
-import Data.Bool (bool)
-import Data.Monoid (Endo(..))
-import Data.Maybe (fromMaybe)
-import Data.Semigroup (Semigroup(..))
-
 import Control.Lens
 
 import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Error
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Requires
+import Reflex.Dom.Validation.Wrap
 
 import Reflex.Dom.Validation.Bootstrap.Radio
-import Reflex.Dom.Validation.Bootstrap.Errors
 
 class AsCompleted f where
   completed :: Lens' (f g) (Wrap Bool g)

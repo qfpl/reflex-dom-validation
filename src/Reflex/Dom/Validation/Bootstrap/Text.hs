@@ -39,6 +39,10 @@ import Reflex.Dom.Core
 import GHCJS.DOM.Types (HTMLTextAreaElement)
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Error
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Requires
+import Reflex.Dom.Validation.Wrap
 
 import Reflex.Dom.Validation.Bootstrap.Errors
 

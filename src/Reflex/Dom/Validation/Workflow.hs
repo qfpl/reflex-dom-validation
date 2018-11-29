@@ -42,6 +42,7 @@ import Reflex.Dom.Core
 import Data.Validation
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Classes
 
 data StepRequirement =
     BlankStep

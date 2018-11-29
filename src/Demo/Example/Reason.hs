@@ -13,12 +13,6 @@ module Demo.Example.Reason (
   , reasonF
   ) where
 
-import Control.Monad (join)
-import Data.Bool (bool)
-import Data.Maybe (fromMaybe)
-import Data.Monoid (Endo(..))
-import Data.Semigroup(Semigroup(..))
-
 import Control.Lens
 
 import Data.Text (Text)
@@ -29,6 +23,10 @@ import Data.Validation
 import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Error
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Requires
+import Reflex.Dom.Validation.Wrap
 
 import Reflex.Dom.Validation.Bootstrap.Text
 

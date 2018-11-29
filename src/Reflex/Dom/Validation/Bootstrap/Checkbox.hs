@@ -29,6 +29,9 @@ import qualified Data.Set as Set
 import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
+import Reflex.Dom.Validation.Error
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Wrap
 
 import Reflex.Dom.Validation.Bootstrap.Errors
 

@@ -64,107 +64,9 @@ import Reflex.Dom.Storage.Base
 import Reflex.Dom.Storage.Class
 import Data.GADT.Aeson
 
-class NFunctor f where
-  nmap :: (forall x. g x -> h x) -> f g -> f h
-
-instance (Functor k, NFunctor f) => NFunctor (Compose k f) where
-  nmap f = Compose . fmap (nmap f) . getCompose
-
-data Id = Id {
-    _idParent :: Maybe Id
-  , _idTag :: Text
-  }
-  deriving (Eq, Ord, Show, Read, Generic)
-
-makeLenses ''Id
-
-instance ToJSON Id where
-instance FromJSON Id where
-
-idApp :: Text -> Id -> Id
-idApp t i = Id (Just i) t
-
-idToText :: Id -> Text
-idToText (Id mi t) = maybe ""  idToText mi <> t
-
-matchOrDescendant :: Id -> Id -> Bool
-matchOrDescendant i1 i2 =
-  i1 == i2 ||
-  maybe False (matchOrDescendant i1) (view idParent i2)
-
-data WithId a = WithId { _wiId :: Id, _wiValue :: a }
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic)
-
-makeLenses ''WithId
-
-instance ToJSON a => ToJSON (WithId a) where
-instance FromJSON a => FromJSON (WithId a) where
-
-hasMatchingErrors :: Id -> [WithId e] -> Bool
-hasMatchingErrors i = any ((== i) . view wiId)
-
-class HasErrorMessage e where
-  errorMessage :: e -> Text
-
-newtype Wrap a f = Wrap {unWrap :: f a }
-  deriving (Generic)
-
-makeWrapped ''Wrap
-
-instance (Eq1 f, Eq a) => Eq (Wrap a f) where
-  Wrap x == Wrap y = liftEq (==) x y
-
-instance (Ord1 f, Ord a) => Ord (Wrap a f) where
-  compare (Wrap x) (Wrap y) = liftCompare compare x y
-
-instance (Show1 f, Show a) => Show (Wrap a f) where
-  showsPrec n (Wrap x) = liftShowsPrec showsPrec showList n x
-
-instance (Read1 f, Read a) => Read (Wrap a f) where
-  readsPrec = fmap (fmap (first Wrap)) <$> liftReadsPrec readsPrec readList
-
-instance (ToJSON1 f, ToJSON a) => ToJSON (Wrap a f) where
-  toJSON (Wrap x) = liftToJSON toJSON toJSONList x
-
-instance (FromJSON1 f, FromJSON a) => FromJSON (Wrap a f) where
-  parseJSON = fmap Wrap <$> liftParseJSON parseJSON parseJSONList
-
-class Semigroup1 f where
-  sappend1 :: f a -> f a -> f a
-
-class Semigroup1 f => Monoid1 f where
-  mempty1 :: f a
-  mappend1 :: f a -> f a -> f a
-  mappend1 = sappend1
-
-instance Semigroup1 Maybe where
-  sappend1 Nothing x = x
-  sappend1 x Nothing = x
-  sappend1 (Just _) (Just y) = Just y
-
-instance Monoid1 Maybe where
-  mempty1 = Nothing
-
-instance Semigroup1 f => Semigroup (Wrap a f) where
-  Wrap x <> Wrap y = Wrap (sappend1 x y)
-
-instance Monoid1 f => Monoid (Wrap a f) where
-  mempty = Wrap mempty1
-  mappend = (<>)
-
-instance NFunctor (Wrap a) where
-  nmap f (Wrap g) = Wrap (f g)
-
-data Requirement = Required | Optional
-  deriving (Eq, Ord, Show, Read)
-
-type family Requires (x :: Requirement) a where
-  Requires 'Required a = a
-  Requires 'Optional a = Maybe a
-
-data SRequirement (x :: Requirement) a where
-  SRequired :: a -> SRequirement 'Required a
-  SOptional :: SRequirement 'Optional a
+import Reflex.Dom.Validation.Classes
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Wrap
 
 type ValidationFn e f f' =
   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
@@ -217,9 +119,6 @@ fieldWidget f@(Field l lu fi _ w) i dv du de = do
     i' = fi i
   ValidationWidgetOutput d e' u' <- w i' (view l <$> dv) (view lu <$> du) $ filter (matchOrDescendant i' . view wiId) <$> de
   pure $ ValidationWidgetOutput d (Endo . over l . appEndo <$> e') (Endo . over lu . appEndo <$> u')
-
-unwrapV :: Wrap a Identity -> a
-unwrapV = runIdentity . unWrap
 
 optional :: ValidationFn e (Wrap (Maybe a)) (Wrap (Maybe a))
 optional _  =
