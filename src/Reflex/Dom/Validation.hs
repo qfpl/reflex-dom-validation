@@ -28,8 +28,10 @@ Portability : non-portable
 module Reflex.Dom.Validation where
 
 import Control.Monad (void, join)
+import Control.Monad.Fix (MonadFix)
 import Data.Bifunctor (first)
 import Data.Bool (bool)
+import Data.Foldable (traverse_)
 import Data.Functor.Classes
 import Data.Functor.Compose (Compose(..))
 import Data.List (nub)
@@ -37,14 +39,15 @@ import Data.Semigroup (Semigroup(..))
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Endo(..))
 
+import Control.Monad.Ref (MonadRef(..), MonadAtomicRef(..))
+
 import GHC.Generics (Generic, Generic1)
 
 import Control.Monad.Trans (MonadTrans(..), liftIO, lift)
 import Control.Monad.Reader (ReaderT(..), MonadReader(..), runReaderT)
-import Control.Monad.Writer (WriterT(..), MonadWriter(..), runWriterT)
-import Control.Monad.State (StateT(..), MonadState(..), runStateT)
+import Control.Monad.State (StateT(..), MonadState(..), runStateT, evalStateT, modify)
 
-import Control.Lens
+import Control.Lens hiding (element)
 
 import Reflex.Dom.Core
 
@@ -63,6 +66,8 @@ import qualified Data.Map as Map
 import Bootstrap
 
 import Data.Dependent.Map (GCompare)
+import qualified Data.Dependent.Map as DMap
+
 import Reflex.Dom.Storage.Base
 import Reflex.Dom.Storage.Class
 import Data.GADT.Aeson
@@ -128,7 +133,102 @@ instance Reflex t => Monoid (ValidationWidgetOutput t e f u) where
 newtype ValidationWidget t m e f u a =
   ValidationWidget {
     unValidationWidget :: ReaderT (ValidationWidgetCtx t e f u) (StateT (ValidationWidgetOutput t e f u) m) a
-  } deriving (Functor, Applicative, Monad, MonadReader (ValidationWidgetCtx t e f u), MonadState (ValidationWidgetOutput t e f u))
+  } deriving (Functor, Applicative, Monad, MonadFix, MonadReader (ValidationWidgetCtx t e f u), MonadState (ValidationWidgetOutput t e f u))
+
+liftW :: Monad m => m a -> ValidationWidget t m e f u a
+liftW x = ValidationWidget . lift . lift $ x
+
+unliftW :: (Functor m, Reflex t) => (forall x. m x -> m x) -> ValidationWidget t m e f u () -> ValidationWidget t m e f u ()
+unliftW f w = toValidationWidget $ \i dv du des ->
+  f $ runValidationWidget w i dv du des
+
+instance PerformEvent t m => PerformEvent t (ValidationWidget t m e f u) where
+  type Performable (ValidationWidget t m e f u) = Performable m
+  {-# INLINABLE performEvent_ #-}
+  performEvent_ e = liftW $ performEvent_ e
+  {-# INLINABLE performEvent #-}
+  performEvent e = liftW $ performEvent e
+
+instance PostBuild t m => PostBuild t (ValidationWidget t m e f u) where
+  {-# INLINABLE getPostBuild #-}
+  getPostBuild = liftW getPostBuild
+
+instance MonadRef m => MonadRef (ValidationWidget t m e f u) where
+  type Ref (ValidationWidget t m e f u) = Ref m
+  {-# INLINABLE newRef #-}
+  newRef = liftW . newRef
+  {-# INLINABLE readRef #-}
+  readRef = liftW . readRef
+  {-# INLINABLE writeRef #-}
+  writeRef r = liftW . writeRef r
+
+instance MonadAtomicRef m => MonadAtomicRef (ValidationWidget t m e f u) where
+  {-# INLINABLE atomicModifyRef #-}
+  atomicModifyRef r = liftW . atomicModifyRef r
+
+instance MonadSample t m => MonadSample t (ValidationWidget t m e f u) where
+  {-# INLINABLE sample #-}
+  sample = liftW . sample
+
+instance MonadHold t m => MonadHold t (ValidationWidget t m e f u) where
+  {-# INLINABLE hold #-}
+  hold v0 v' = liftW $ hold v0 v'
+  {-# INLINABLE holdDyn #-}
+  holdDyn v0 v' = liftW $ holdDyn v0 v'
+  {-# INLINABLE holdIncremental #-}
+  holdIncremental v0 v' = liftW $ holdIncremental v0 v'
+  {-# INLINABLE buildDynamic #-}
+  buildDynamic a0 = liftW . buildDynamic a0
+  {-# INLINABLE headE #-}
+  headE = liftW . headE
+
+instance NotReady t m => NotReady t (ValidationWidget t m e f u) where
+  notReadyUntil = liftW . notReadyUntil
+  notReady = liftW notReady
+
+-- TODO: make this not super dodgy
+-- at the moment we have Dynamics and Events in the state
+-- and we aren't dealing with them here
+--
+-- instance (Adjustable t m) => Adjustable t (ValidationWidget t m e f u) where
+--   runWithReplace a0 a' = do
+--     r <- ask
+--     old <- get
+--     ((x, new), e) <- liftW $ runWithReplace (flip runStateT old . flip runReaderT r . unValidationWidget $ a0) $ fmap (flip runStateT old . flip runReaderT r . unValidationWidget) a'
+--     put new
+--     pure (x, fmap fst e)
+--   traverseIntMapWithKeyWithAdjust f dm0 dm' = do
+--     r <- ask
+--     old <- get
+--     (i, e) <- liftW $ traverseIntMapWithKeyWithAdjust (\k v -> flip runStateT old . flip runReaderT r . unValidationWidget $ f k v) dm0 dm'
+--     traverse_ (modify . (<>) . snd) i
+--     pure (fmap fst i, fmap (fmap fst) e)
+--   traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = do
+--     r <- ask
+--     old <- get
+--     (i, e) <- liftW $ traverseDMapWithKeyWithAdjustWithMove (\k v -> fmap (\(x,y) -> Compose (y, x)) . flip runStateT old . flip runReaderT r . unValidationWidget $ f k v) dm0 dm'
+--     put . DMap.foldrWithKey (\_ v b -> (b <>) . fst . getCompose $ v) old $ i
+--     pure (DMap.map (snd . getCompose) i, mapPatchDMapWithMove (snd . getCompose) <$> e)
+-- 
+-- instance (DomBuilder t m, MonadHold t m, MonadFix m) => DomBuilder t (ValidationWidget t m e f u) where
+--   type DomBuilderSpace (ValidationWidget t m e f u) = DomBuilderSpace m
+--   textNode = liftW . textNode
+--   element elementTag cfg (ValidationWidget child) = ValidationWidget $ do
+--     r <- ask
+--     old <- get
+--     (el, (a, new)) <- lift $ lift $ element elementTag cfg $ runStateT (runReaderT child r) old
+--     put new
+--     return (el, a)
+--   inputElement = liftW . inputElement
+--   textAreaElement = liftW . textAreaElement
+--   selectElement cfg (ValidationWidget child) = ValidationWidget $ do
+--     r <- ask
+--     old <- get
+--     (el, (a, new)) <- lift $ lift $ selectElement cfg $ runStateT (runReaderT child r) old
+--     put new
+--     return (el, a)
+--   placeRawElement = liftW . placeRawElement
+--   wrapRawElement e = liftW . wrapRawElement e
 
 toValidationWidget :: (Functor m, Reflex t) => (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u)) -> ValidationWidget t m e f u a
 toValidationWidget f = 

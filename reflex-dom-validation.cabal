@@ -52,6 +52,7 @@ library
                      , dependent-sum
                      , dependent-map
                      , lens
+                     , ref-tf
                      , reflex
                      , reflex-dom
                      , ghcjs-dom
