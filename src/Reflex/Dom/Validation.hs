@@ -42,6 +42,7 @@ import GHC.Generics (Generic, Generic1)
 import Control.Monad.Trans (MonadTrans(..), liftIO, lift)
 import Control.Monad.Reader (ReaderT(..), MonadReader(..), runReaderT)
 import Control.Monad.Writer (WriterT(..), MonadWriter(..), runWriterT)
+import Control.Monad.State (StateT(..), MonadState(..), runStateT)
 
 import Control.Lens
 
@@ -126,20 +127,23 @@ instance Reflex t => Monoid (ValidationWidgetOutput t e f u) where
 
 newtype ValidationWidget t m e f u a =
   ValidationWidget {
-    unValidationWidget :: ReaderT (ValidationWidgetCtx t e f u) (WriterT (ValidationWidgetOutput t e f u) m) a
-  } deriving (Functor, Applicative, Monad, MonadReader (ValidationWidgetCtx t e f u), MonadWriter (ValidationWidgetOutput t e f u))
+    unValidationWidget :: ReaderT (ValidationWidgetCtx t e f u) (StateT (ValidationWidgetOutput t e f u) m) a
+  } deriving (Functor, Applicative, Monad, MonadReader (ValidationWidgetCtx t e f u), MonadState (ValidationWidgetOutput t e f u))
 
-toValidationWidget :: (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u)) -> ValidationWidget t m e f u a
-toValidationWidget f = ValidationWidget (ReaderT (\(ValidationWidgetCtx i dv du des) -> WriterT (f i dv du des)))
+toValidationWidget :: (Functor m, Reflex t) => (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u)) -> ValidationWidget t m e f u a
+toValidationWidget f = 
+  ValidationWidget . ReaderT $ \(ValidationWidgetCtx i dv du des) -> 
+    StateT $ \s ->  do
+      fmap (s <>) <$> f i dv du des
 
-toValidationWidget_ :: Functor m => (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)) -> ValidationWidget t m e f u ()
+toValidationWidget_ :: (Functor m, Reflex t) => (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)) -> ValidationWidget t m e f u ()
 toValidationWidget_ f = toValidationWidget (\i dv du des -> fmap (\x -> ((), x)) (f i dv du des))
 
-runValidationWidget :: ValidationWidget t m e f u a -> Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u)
+runValidationWidget :: Reflex t => ValidationWidget t m e f u a -> Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u)
 runValidationWidget f i dv du des = 
-  runWriterT (runReaderT (unValidationWidget f) (ValidationWidgetCtx i dv du des))
+  runStateT (runReaderT (unValidationWidget f) (ValidationWidgetCtx i dv du des)) mempty
 
-runValidationWidget_ :: Functor m => ValidationWidget t m e f u a -> Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)
+runValidationWidget_ :: (Functor m, Reflex t) => ValidationWidget t m e f u a -> Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)
 runValidationWidget_ f i dv du des = fmap snd $ runValidationWidget f i dv du des
 
 data Field t m e f f' u u' where
