@@ -52,8 +52,8 @@ makeLenses ''SelectWidgetConfig
 selectWidget :: (MonadWidget t m, HasErrorMessage e, Ord c)
   => c
   -> SelectWidgetConfig c
-  -> ValidationWidget t m e (Wrap c) u
-selectWidget defV swc i dv du des = divClass "form-group" $ do
+  -> ValidationWidget t m e (Wrap c) u ()
+selectWidget defV swc = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
   let
     it = idToText i
 
@@ -70,7 +70,7 @@ selectWidget defV swc i dv du des = divClass "form-group" $ do
     -- & setValue .~ (fmap (fromMaybe defV . unWrap) . updated $ dv)
     & attributes .~ dAttrs
 
-  errorsForId i des
+  runValidationWidget errorsForId i dv du des
 
   let
     eChange =
@@ -84,8 +84,8 @@ selectWidget defV swc i dv du des = divClass "form-group" $ do
 
 selectOptionalWidget :: (MonadWidget t m, HasErrorMessage e, Ord c)
   => SelectWidgetConfig c
-  -> ValidationWidget t m e (Wrap (Maybe c)) u
-selectOptionalWidget swc i dv du des = divClass "form-group" $ do
+  -> ValidationWidget t m e (Wrap (Maybe c)) u ()
+selectOptionalWidget swc = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
   let
     it = idToText i
 
@@ -103,7 +103,7 @@ selectOptionalWidget swc i dv du des = divClass "form-group" $ do
   let
     eChange = Endo . const . Wrap . Just <$> dd ^. dropdown_change
 
-  errorsForId i des
+  runValidationWidget errorsForId i dv du des
 
   pure $ ValidationWidgetOutput (pure mempty) eChange never
 

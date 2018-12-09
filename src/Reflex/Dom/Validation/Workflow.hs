@@ -96,10 +96,10 @@ workflowWidget :: forall t m e f u.
                   (MonadWidget t m, Eq e, HasBadWorkflowIndex e, NFunctor f, AsWorkflowIndex u)
                => [WorkflowStep t m e f u]
                -> WorkflowWidgetConfig t m e
-               -> ValidationWidget t m e f u
-workflowWidget [] _ _ _ _ _ =
+               -> ValidationWidget t m e f u ()
+workflowWidget [] _ = toValidationWidget_ $ \ _ _ _ _ ->
   pure mempty
-workflowWidget steps wwc i dv du des =
+workflowWidget steps wwc = toValidationWidget_ $ \i dv du des ->
   let
     labels = stepLabel <$> steps
     w wix iv eIxS =
@@ -111,7 +111,7 @@ workflowWidget steps wwc i dv du des =
           (eIx, ValidationWidgetOutput dFailure eChange eU) <-
               (wwc ^. wwcCombine)
                 ((wwc ^. wwcHeader) wix labels (pure ()))
-                (fieldWidget f i dv du des)
+                (runValidationWidget_ (fieldWidget f) i dv du des)
                 ((wwc ^. wwcFooter) wix labels (pure ()))
 
           let
@@ -134,7 +134,7 @@ workflowWidget steps wwc i dv du des =
 
             checkValidation e =
               let
-                fes es v ix = foldValidation es . fmap (\s -> (ix, s)) . toEither . fieldValidation f i $ v
+                fes es v ix = foldValidation es . fmap (\s -> (ix, s)) . toEither . runValidationFn (fieldValidation f) i $ v
                 (eF, eIS) = fanEither $ fes <$> current dFailure <*> current dv' <@> e
                 -- TODO validate from here to the new index, stop at first validation error
                 -- (eF, eIS) = fanEither $ validateBetween steps i wix <$> current dFailure <*> current dv' <@> e

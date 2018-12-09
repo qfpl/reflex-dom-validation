@@ -37,15 +37,17 @@ instance AsReason (Wrap (Maybe Text)) where
   reason = id
 
 reasonV :: ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
-reasonV _ (Wrap (Just (Just t))) =
-  Success . Wrap . Identity $
-    if Text.null t then Nothing else Just t
-reasonV _ _ =
-  Success . Wrap . Identity $
-    Nothing
+reasonV = toValidationFn $ \_ v ->
+  case v of
+    Wrap (Just (Just t)) -> 
+      Success . Wrap . Identity $ 
+        if Text.null t then Nothing else Just t
+    _ -> 
+      Success . Wrap . Identity $ 
+        Nothing
 
 reasonW :: (MonadWidget t m, HasErrorMessage e)
-        => ValidationWidget t m e (Wrap (Maybe Text)) u
+        => ValidationWidget t m e (Wrap (Maybe Text)) u ()
 reasonW =
   textWidget (TextWidgetConfig (Just "Reason") UpdateOnChange) SOptional
 

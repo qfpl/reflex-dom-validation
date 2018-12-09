@@ -39,7 +39,9 @@ import Data.Monoid (Endo(..))
 
 import GHC.Generics (Generic, Generic1)
 
-import Control.Monad.Trans (liftIO, lift)
+import Control.Monad.Trans (MonadTrans(..), liftIO, lift)
+import Control.Monad.Reader (ReaderT(..), MonadReader(..), runReaderT)
+import Control.Monad.Writer (WriterT(..), MonadWriter(..), runWriterT)
 
 import Control.Lens
 
@@ -68,8 +70,39 @@ import Reflex.Dom.Validation.Classes
 import Reflex.Dom.Validation.Id
 import Reflex.Dom.Validation.Wrap
 
-type ValidationFn e f f' =
-  Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
+-- type ValidationFn e f f' =
+--   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
+
+data ValidationCtx f = 
+  ValidationCtx {
+    _vcId :: Id
+  , _vcInput :: f Maybe
+  }
+
+makeLenses ''ValidationCtx
+
+newtype ValidationFn' e f a = 
+  ValidationFn' { 
+    unValidationFn :: ReaderT (ValidationCtx f) (Validation (NonEmpty (WithId e))) a
+  } deriving (Functor, Applicative)
+
+type ValidationFn e f f' = ValidationFn' e f (f' Identity)
+
+toValidationFn :: (Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)) -> ValidationFn e f f'
+toValidationFn f = ValidationFn' (ReaderT (\(ValidationCtx i v) -> f i v))
+
+runValidationFn :: ValidationFn e f f' -> Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
+runValidationFn f i v = runReaderT (unValidationFn f) (ValidationCtx i v)
+
+data ValidationWidgetCtx t e f u =
+  ValidationWidgetCtx {
+    _vwcId :: Id
+  , _vwcValue :: Dynamic t (f Maybe)
+  , _vwcUi :: Dynamic t u
+  , _vwcErrors :: Dynamic t [WithId e]
+  }
+
+makeLenses ''ValidationWidgetCtx
 
 data ValidationWidgetOutput t e f u =
   ValidationWidgetOutput {
@@ -88,10 +121,26 @@ instance Reflex t => Monoid (ValidationWidgetOutput t e f u) where
   mempty = ValidationWidgetOutput mempty mempty mempty
   mappend = (<>)
 
--- TODO change ValidationWidget return type
+-- type ValidationWidget t m e f u =
+--   Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)
 
-type ValidationWidget t m e f u =
-  Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)
+newtype ValidationWidget t m e f u a =
+  ValidationWidget {
+    unValidationWidget :: ReaderT (ValidationWidgetCtx t e f u) (WriterT (ValidationWidgetOutput t e f u) m) a
+  } deriving (Functor, Applicative, Monad, MonadReader (ValidationWidgetCtx t e f u), MonadWriter (ValidationWidgetOutput t e f u))
+
+toValidationWidget :: (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u)) -> ValidationWidget t m e f u a
+toValidationWidget f = ValidationWidget (ReaderT (\(ValidationWidgetCtx i dv du des) -> WriterT (f i dv du des)))
+
+toValidationWidget_ :: Functor m => (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)) -> ValidationWidget t m e f u ()
+toValidationWidget_ f = toValidationWidget (\i dv du des -> fmap (\x -> ((), x)) (f i dv du des))
+
+runValidationWidget :: ValidationWidget t m e f u a -> Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u)
+runValidationWidget f i dv du des = 
+  runWriterT (runReaderT (unValidationWidget f) (ValidationWidgetCtx i dv du des))
+
+runValidationWidget_ :: Functor m => ValidationWidget t m e f u a -> Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)
+runValidationWidget_ f i dv du des = fmap snd $ runValidationWidget f i dv du des
 
 data Field t m e f f' u u' where
   Field :: NFunctor f'
@@ -99,33 +148,42 @@ data Field t m e f f' u u' where
         -> Lens' u u'
         -> (Id -> Id)
         -> ValidationFn e f' f'
-        -> ValidationWidget t m e f' u'
+        -> ValidationWidget t m e f' u' ()
         -> Field t m e f f' u u'
 
 fieldId :: Field t m e f f' u u' -> Id -> Id
 fieldId (Field _ _ fi _ _) i = fi i
 
 fieldValidation' :: (forall g. Lens' (f g) (f' g)) -> (Id -> Id) -> ValidationFn e f' f' -> ValidationFn e f f'
-fieldValidation' l fi v i mf =
-  v (fi i) (view l mf)
+fieldValidation' l fi v = toValidationFn $ \i mf ->
+  runValidationFn v (fi i) (view l mf)
 
 fieldValidation :: Field t m e f f' u u' -> ValidationFn e f f'
-fieldValidation f@(Field l _ fi v _) i mf
-  = v (fi i) (view l mf)
+fieldValidation f@(Field l _ fi v _) = toValidationFn $ \i mf ->
+  runValidationFn v (fi i) (view l mf)
 
-fieldWidget :: MonadWidget t m => Field t m e f f' u u' -> ValidationWidget t m e f u
-fieldWidget f@(Field l lu fi _ w) i dv du de = do
+fieldWidget :: MonadWidget t m => Field t m e f f' u u' -> ValidationWidget t m e f u ()
+fieldWidget f@(Field l lu fi _ w) = toValidationWidget_ $ \i dv du de -> do
   let
     i' = fi i
-  ValidationWidgetOutput d e' u' <- w i' (view l <$> dv) (view lu <$> du) $ filter (matchOrDescendant i' . view wiId) <$> de
-  pure $ ValidationWidgetOutput d (Endo . over l . appEndo <$> e') (Endo . over lu . appEndo <$> u')
+  ValidationWidgetOutput d e' u' <- runValidationWidget_ w i' (view l <$> dv) (view lu <$> du) $ filter (matchOrDescendant i' . view wiId) <$> de
+  pure (ValidationWidgetOutput d (Endo . over l . appEndo <$> e') (Endo . over lu . appEndo <$> u'))
 
 optional :: ValidationFn e (Wrap (Maybe a)) (Wrap (Maybe a))
-optional _  =
+optional = toValidationFn $ \_ ->
   Success . Wrap . Identity . join . unWrap
 
+-- TODO required but blankable
+requiredMaybe :: HasNotSpecified e => ValidationFn e (Wrap (Maybe a)) (Wrap (Maybe a))
+requiredMaybe = toValidationFn $ \i ->
+  maybe 
+    (Failure . pure . WithId i $ _NotSpecified # ()) 
+    (Success . Wrap . Identity . Just) . 
+  join . 
+  unWrap
+
 required :: HasNotSpecified e => ValidationFn e (Wrap a) (Wrap a)
-required i (Wrap m) =
+required = toValidationFn $ \i (Wrap m) ->
   maybe (Failure . pure . WithId i $ _NotSpecified # ()) (Success . Wrap . Identity) m
 
 class HasNotSpecified e where
@@ -143,10 +201,10 @@ wrapUp f ini iniU v = mdo
 
   dcr <- foldDyn ($) ini $ fmap appEndo eFn
   du <- foldDyn ($) iniU $ fmap appEndo eU
-  ValidationWidgetOutput de eFn eU <- fieldWidget f i dcr du $
+  ValidationWidgetOutput de eFn eU <- runValidationWidget_ (fieldWidget f) i dcr du $
     (\x y -> nub $ x ++ y) <$> des <*> de
   eV <- v dcr
-  let (eFailure, eSuccess) = fanEither $ toEither . fieldValidation f i <$> eV
+  let (eFailure, eSuccess) = fanEither $ toEither . runValidationFn (fieldValidation f) i <$> eV
   -- TODO printing these failures would be interesting
   des :: Dynamic t [WithId e] <- holdDyn [] . leftmost $
     [ NonEmpty.toList <$> eFailure
@@ -183,10 +241,10 @@ wrapUpStorage f k ini kU iniU kE v = runStorageT LocalStorage $ do
     dcr <- foldDyn ($) iTag . leftmost $ [fmap appEndo eFn, const <$> updated dTag]
     dU <- foldDyn ($) iuTag . leftmost $ [fmap appEndo eU, const <$> updated duTag]
 
-    ValidationWidgetOutput de eFn eU <- fieldWidget f i dcr dU $
+    ValidationWidgetOutput de eFn eU <- runValidationWidget_ (fieldWidget f) i dcr dU $
       (\x y -> nub $ x ++ y) <$> des <*> de
     eV <- v dcr
-    let (eFailure, eSuccess) = fanEither $ toEither . fieldValidation f i <$> eV
+    let (eFailure, eSuccess) = fanEither $ toEither . runValidationFn (fieldValidation f) i <$> eV
     let eE = leftmost [NonEmpty.toList <$> eFailure, [] <$ eSuccess]
     des :: Dynamic t [WithId e] <- holdDyn ieTag . leftmost $ [eE , updated deTag]
 

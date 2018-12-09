@@ -100,14 +100,13 @@ completedWithReasonF =
       then Failure . pure . WithId (fieldId fR i) $ _ReasonRequiredForIncomplete # ()
       else Success $ CompletedWithReason c r
 
-    completedWithReasonV i cr =
-      fieldValidation fC i cr `bindValidation` \c ->
-      fieldValidation fR i cr `bindValidation` \r ->
+    completedWithReasonV = toValidationFn $ \i cr ->
+      runValidationFn (fieldValidation fC) i cr `bindValidation` \c ->
+      runValidationFn (fieldValidation fR) i cr `bindValidation` \r ->
       f i c r
 
-    completedWithReasonW i dv du  de = do
-      eC <- fieldWidget completedF i dv du de
-      eR <- fieldWidget reasonF i dv du de
-      pure $ eC <> eR
+    completedWithReasonW =
+      fieldWidget completedF >>
+      fieldWidget reasonF
   in
     Field completedWithReason united (idApp "-cwr") completedWithReasonV completedWithReasonW

@@ -207,14 +207,14 @@ makeLenses ''Nest
 
 fooNVx :: HasNotSpecified e
       => ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
-fooNVx _ (Wrap (Just (Just t))) =
-  Success . Wrap . Identity . Just $ t
-fooNVx i (Wrap Nothing) =
-  Failure . pure . WithId i $ _NotSpecified # ()
+fooNVx = toValidationFn $ \i v ->
+  case v of
+    Wrap (Just (Just t)) -> Success . Wrap . Identity . Just $ t
+    Wrap Nothing -> Failure . pure . WithId i $ _NotSpecified # ()
 
 fooNWx :: (MonadWidget t m, HasErrorMessage e)
       => Text
-      -> ValidationWidget t m e (Wrap (Maybe Text)) u
+      -> ValidationWidget t m e (Wrap (Maybe Text)) u ()
 fooNWx l =
   textWidget (TextWidgetConfig (Just l) UpdateOnChange) SOptional
 
@@ -257,11 +257,11 @@ fooN1F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflo
       => Field t m e Nest Nest1 NestU Nest1U
 fooN1F =
   let
-    fooN1V i v =
+    fooN1V =
       Nest1 <$>
-        fieldValidation (fooN1a @t @m) i v <*>
-        fieldValidation (fooN1b @t @m) i v <*>
-        fieldValidation (fooN1c @t @m) i v
+        fieldValidation (fooN1a @t @m) <*>
+        fieldValidation (fooN1b @t @m) <*>
+        fieldValidation (fooN1c @t @m) 
     fooN1W =
       workflowWidget [ WorkflowStep "W1" fooN1a []
                      , WorkflowStep "W2" fooN1b []
@@ -274,11 +274,11 @@ fooN2F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflo
       => Field t m e Nest Nest2 NestU Nest2U
 fooN2F =
   let
-    fooN2V i v =
+    fooN2V =
       Nest2 <$>
-        fieldValidation (fooN2d @t @m) i v <*>
-        fieldValidation (fooN2e @t @m) i v <*>
-        fieldValidation (fooN2f @t @m) i v
+        fieldValidation (fooN2d @t @m) <*>
+        fieldValidation (fooN2e @t @m) <*>
+        fieldValidation (fooN2f @t @m) 
     fooN2W =
       workflowWidget [ WorkflowStep "W4" fooN2d []
                      , WorkflowStep "W5" fooN2e []
@@ -291,11 +291,11 @@ fooN3F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflo
       => Field t m e Nest Nest3 NestU Nest3U
 fooN3F =
   let
-    fooN3V i v =
+    fooN3V =
       Nest3 <$>
-        fieldValidation (fooN3g @t @m) i v <*>
-        fieldValidation (fooN3h @t @m) i v <*>
-        fieldValidation (fooN3i @t @m) i v
+        fieldValidation (fooN3g @t @m) <*>
+        fieldValidation (fooN3h @t @m) <*>
+        fieldValidation (fooN3i @t @m)
     fooN3W =
       workflowWidget [ WorkflowStep "W7" fooN3g []
                     , WorkflowStep "W8" fooN3h []
@@ -320,11 +320,11 @@ fooNF :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWork
       => Field t m e f Nest u NestU
 fooNF =
   let
-    fooNV i v =
+    fooNV =
       Nest <$>
-        fieldValidation (fooN1F @t @m) i v <*>
-        fieldValidation (fooN2F @t @m) i v <*>
-        fieldValidation (fooN3F @t @m) i v
+        fieldValidation (fooN1F @t @m) <*>
+        fieldValidation (fooN2F @t @m) <*>
+        fieldValidation (fooN3F @t @m) 
 
     fooNW =
       workflowWidget [ WorkflowStep "WA" fooN1F $
@@ -452,16 +452,16 @@ fooAV :: ( HasErrorMessage e
          , HasValidityError e
          )
       => ValidationFn e (Wrap Day) (Wrap Day)
-fooAV _ (Wrap (Just x)) =
-  Success . Wrap . Identity $ x
-fooAV i (Wrap Nothing) =
-  Failure . pure . WithId i $ _FooNotDigits # ()
+fooAV = toValidationFn $ \i v -> 
+  case v of
+    Wrap (Just x) -> Success . Wrap . Identity $ x
+    Wrap Nothing -> Failure . pure . WithId i $ _FooNotDigits # ()
 
 fooAW :: ( MonadWidget t m
          , HasErrorMessage e
          , HasValidityError e
          )
-      => ValidationWidget t m e (Wrap Day) u
+      => ValidationWidget t m e (Wrap Day) u ()
 fooAW =
   validWidget $ ValidWidgetConfig (Just "A") dayConfigBuilder
 
@@ -476,13 +476,13 @@ fooAF =
 
 fooBV :: (HasErrorMessage e, HasFooNotLower e)
       => ValidationFn e (Wrap (Set Bar)) (Wrap (Set Bar))
-fooBV _ (Wrap (Just t)) =
-  Success . Wrap . Identity $ t
-fooBV _ _ =
-  Success . Wrap . Identity $ mempty
+fooBV = toValidationFn $ \_ v ->
+  case v of
+    Wrap (Just t) -> Success . Wrap . Identity $ t
+    _ -> Success . Wrap . Identity $ mempty
 
 fooBW :: (MonadWidget t m, HasErrorMessage e)
-      => ValidationWidget t m e (Wrap (Set Bar)) u
+      => ValidationWidget t m e (Wrap (Set Bar)) u ()
 fooBW =
   checkboxWidget . CheckboxWidgetConfig (Just "B") True $
     [ CheckboxOptionConfig "A" "-a" A
@@ -497,15 +497,17 @@ fooBF =
 
 fooCV :: (HasErrorMessage e, HasFooNotUpper e)
       => ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
-fooCV i (Wrap (Just (Just t))) =
-  if all isUpper (Text.unpack t)
-  then Success . Wrap . Identity . Just $ t
-  else Failure . pure . WithId i $ _FooNotUpper # ()
-fooCV _ _ =
-  Success . Wrap . Identity $ Nothing
+fooCV = toValidationFn $ \i v -> 
+  case v of
+    Wrap (Just (Just t)) ->
+      if all isUpper (Text.unpack t)
+      then Success . Wrap . Identity . Just $ t
+      else Failure . pure . WithId i $ _FooNotUpper # ()
+    _ -> 
+      Success . Wrap . Identity $ Nothing
 
 fooCW :: (MonadWidget t m, HasErrorMessage e)
-      => ValidationWidget t m e (Wrap (Maybe Text)) u
+      => ValidationWidget t m e (Wrap (Maybe Text)) u ()
 fooCW =
   textWidget (TextWidgetConfig (Just "C") UpdateOnChange) SOptional
 
@@ -516,11 +518,13 @@ fooCF =
 
 selectOV :: (HasNotSpecified e)
          => ValidationFn e (Wrap Bar) (Wrap Bar)
-selectOV _ (Wrap (Just x)) = Success . Wrap . Identity $ x
-selectOV i (Wrap Nothing) = Failure . pure . WithId i $ _NotSpecified # ()
+selectOV = toValidationFn $ \i v ->
+  case v of
+    Wrap (Just x) -> Success . Wrap . Identity $ x
+    Wrap Nothing -> Failure . pure . WithId i $ _NotSpecified # ()
 
 selectOW :: (MonadWidget t m, HasErrorMessage e)
-         => ValidationWidget t m e (Wrap Bar) u
+         => ValidationWidget t m e (Wrap Bar) u ()
 selectOW =
   selectWidget A . SelectWidgetConfig (Just "One") $
     [ SelectOptionConfig "A" A
@@ -534,11 +538,13 @@ selectOF =
   Field sdOne united (idApp "-o") selectOV selectOW
 
 selectMaV :: ValidationFn e (Wrap (Maybe Bar)) (Wrap (Maybe Bar))
-selectMaV i (Wrap (Just mb)) = Success . Wrap . Identity $ mb
-selectMaV i (Wrap Nothing) = Success . Wrap . Identity $ Nothing
+selectMaV = toValidationFn $ \i v ->
+  case v of
+    Wrap (Just mb) -> Success . Wrap . Identity $ mb
+    Wrap Nothing -> Success . Wrap . Identity $ Nothing
 
 selectMaW :: (MonadWidget t m, HasErrorMessage e)
-          => ValidationWidget t m e (Wrap (Maybe Bar)) u
+          => ValidationWidget t m e (Wrap (Maybe Bar)) u ()
 selectMaW =
   selectOptionalWidget . SelectWidgetConfig (Just "Maybe") $
     [ SelectOptionConfig "A" A
@@ -554,15 +560,14 @@ fooDF :: forall t m e f u. (MonadWidget t m, AsSelectDemo f, HasErrorMessage e, 
       => Field t m e f SelectDemo u ()
 fooDF =
   let
-    fooDV i cr =
+    fooDV =
       SelectDemo <$>
-        fieldValidation (selectOF @t @m) i cr <*>
-        fieldValidation (selectMaF @t @m) i cr
+        fieldValidation (selectOF @t @m) <*>
+        fieldValidation (selectMaF @t @m) 
 
-    fooDW i dv du des = do
-      eO <- fieldWidget selectOF i dv du des
-      eMa <- fieldWidget selectMaF i dv du des
-      pure $ eO <> eMa
+    fooDW =
+      fieldWidget selectOF >>
+      fieldWidget selectMaF
   in
     Field selectDemo united (idApp "-d") fooDV fooDW
 
@@ -582,13 +587,13 @@ fooF :: forall t m e f u.
       => Field t m e f Foo u FooU
 fooF =
   let
-    fooV i cr =
+    fooV =
       Foo <$>
-        fieldValidation (fooNF @t @m @e @Foo @FooU) i cr <*>
-        fieldValidation (fooDF @t @m) i cr <*>
-        fieldValidation (fooAF @t @m) i cr <*>
-        fieldValidation (fooBF @t @m) i cr <*>
-        fieldValidation (fooCF @t @m) i cr
+        fieldValidation (fooNF @t @m @e @Foo @FooU) <*>
+        fieldValidation (fooDF @t @m) <*>
+        fieldValidation (fooAF @t @m) <*>
+        fieldValidation (fooBF @t @m) <*>
+        fieldValidation (fooCF @t @m) 
 
     fooW =
       workflowWidget

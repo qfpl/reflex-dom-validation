@@ -87,8 +87,8 @@ instance TextChange 'Optional where
 textWidget :: (MonadWidget t m, HasErrorMessage e, TextChange r)
            => TextWidgetConfig
            -> SRequirement r Text
-           -> ValidationWidget t m e (Wrap (Requires r Text)) u
-textWidget twc sr i dv _ des = divClass "form-group" $ do
+           -> ValidationWidget t m e (Wrap (Requires r Text)) u ()
+textWidget twc sr = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
   let it = idToText i
   forM_ (twc ^. twcLabel) $
      elAttr "label" ("for" =: it) . text
@@ -104,7 +104,7 @@ textWidget twc sr i dv _ des = divClass "form-group" $ do
                     (("class" =:) . ("form-control " <>) <$> errorClass i des)
   let ev' = textUpdate (view twcUpdate twc) (value ti) (ti ^. textInput_input) (ti ^. textInput_keypress)
 
-  errorsForId i des
+  runValidationWidget errorsForId i dv du des
 
   let
     eChange = textChange sr ev'
@@ -114,8 +114,8 @@ textWidget twc sr i dv _ des = divClass "form-group" $ do
 textAreaWidget :: (MonadWidget t m, HasErrorMessage e, TextChange r)
                => TextWidgetConfig
                -> SRequirement r Text
-               -> ValidationWidget t m e (Wrap (Requires r Text)) u
-textAreaWidget twc sr i dv _ des = divClass "form-group" $ do
+               -> ValidationWidget t m e (Wrap (Requires r Text)) u ()
+textAreaWidget twc sr = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
   let it = idToText i
   forM_ (twc ^. twcLabel) $
      elAttr "label" ("for" =: it) . text
@@ -131,7 +131,7 @@ textAreaWidget twc sr i dv _ des = divClass "form-group" $ do
                     (("class" =:) . ("form-control " <>) <$> errorClass i des)
   let ev' = textUpdate (view twcUpdate twc) (value ta) (ta ^. textArea_input) (ta ^. textArea_keypress)
 
-  errorsForId i des
+  runValidationWidget errorsForId i dv du des
 
   let
     eChange = textChange sr ev'

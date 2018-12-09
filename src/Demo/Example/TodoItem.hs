@@ -64,12 +64,12 @@ instance NFunctor TodoItem where
 makeLenses ''TodoItem
 
 toggleV :: ValidationFn e (Wrap Bool) (Wrap Bool)
-toggleV i mv =
-  Success . Wrap . Identity . fromMaybe False . unWrap $ mv
+toggleV = toValidationFn $ \i ->
+  Success . Wrap . Identity . fromMaybe False . unWrap
 
 toggleW :: (MonadWidget t m)
-        => ValidationWidget t m e (Wrap Bool) u
-toggleW i dv _ _ = do
+        => ValidationWidget t m e (Wrap Bool) u ()
+toggleW = toValidationWidget_ $ \i dv _ _ -> do
   let
     f = fromMaybe False . unWrap
     ev = f <$> updated dv
@@ -88,12 +88,12 @@ completeF = Field tiComplete united (idApp "-c") toggleV toggleW
 
 -- TODO make this an error if it is empty
 itemV :: ValidationFn e (Wrap Text) (Wrap Text)
-itemV _ =
+itemV = toValidationFn $ \_ ->
   Success . Wrap . Identity . fromMaybe "" . unWrap
 
 itemW :: MonadWidget t m
-      => ValidationWidget t m e (Wrap Text) u
-itemW _ dv _ _ = do
+      => ValidationWidget t m e (Wrap Text) u ()
+itemW = toValidationWidget_ $ \_ dv _ _ -> do
   let
     f = fromMaybe "" . unWrap
     ev = f <$> updated dv
@@ -113,12 +113,13 @@ itemF = Field tiItem united (idApp "-i") itemV itemW
 todoItemF :: forall t m e u. (MonadWidget t m, HasErrorMessage e) => Field t m e TodoItem TodoItem u u
 todoItemF =
   let
-    todoItemV i mti =
-      TodoItem <$> fieldValidation (completeF @t @m) i mti <*> fieldValidation (itemF @t @m) i mti
-    todoItemW i dv du des = do
-      ValidationWidgetOutput dCompleteE eComplete eCompleteU <- fieldWidget completeF i dv du des
-      ValidationWidgetOutput dItemE eItem eItemU <- fieldWidget itemF i dv du des
-      errorsForId i des
-      pure $ ValidationWidgetOutput (dCompleteE <> dItemE) (eComplete <> eItem) (eCompleteU <> eItemU)
+    todoItemV =
+      TodoItem <$> 
+        fieldValidation (completeF @t @m) <*> 
+        fieldValidation (itemF @t @m) 
+    todoItemW = do
+      fieldWidget completeF 
+      fieldWidget itemF 
+      errorsForId
   in
     Field id id (idApp "-ti") todoItemV todoItemW

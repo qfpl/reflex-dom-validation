@@ -21,6 +21,7 @@ import Control.Lens
 
 import Reflex.Dom.Core
 
+import Reflex.Dom.Validation
 import Reflex.Dom.Validation.Id
 import Reflex.Dom.Validation.Error
 
@@ -29,10 +30,11 @@ errorClass i des =
   bool "is-valid" "is-invalid" . hasMatchingId i <$> des
 
 errorsForId :: (MonadWidget t m, HasErrorMessage e)
-            => Id -> Dynamic t [WithId e] -> m ()
-errorsForId i des =
+            => ValidationWidget t m e f u ()
+errorsForId = toValidationWidget_ $ \i _ _ des ->
   let
     dErrors = fmap (errorMessage . view wiValue) . ffilter ((== i) . view wiId) <$> des
-  in
+  in do
     void . simpleList dErrors $
       divClass "invalid-feedback" . dynText
+    pure mempty

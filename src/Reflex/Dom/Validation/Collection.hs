@@ -41,9 +41,9 @@ import Reflex.Dom.Validation.Bootstrap.Errors
 collectionV :: (Maybe k -> Id -> Id)
             -> Field t m e f f' u u' -- ValidationFn e f f'
             -> ValidationFn e (Compose (Map k) f) (Compose (Map k) f')
-collectionV ki (Field l _ fi vfn _) i =
+collectionV ki (Field l _ fi vfn _) = toValidationFn $ \i ->
  fmap Compose .
- Map.traverseWithKey (\k v -> vfn (fi (ki (Just k) i)) (view l v)) .
+ Map.traverseWithKey (\k v -> runValidationFn vfn (fi (ki (Just k) i)) (view l v)) .
  getCompose
 
 gatherCollectionEvents :: forall t e f u k. (Reflex t, Num k, Enum k, Ord k)
@@ -91,8 +91,8 @@ collectionW :: forall t m e f u k. (MonadWidget t m, HasErrorMessage e, Num k, E
       -> Field t m e f f u u
       -> m (Event t (f Maybe, u))
       -> m (Event t ())
-      -> ValidationWidget t m e (Compose (Map k) f) (Map k u)
-collectionW ki (Field l lu fi _ fw) addMe deleteMe i dv du des =
+      -> ValidationWidget t m e (Compose (Map k) f) (Map k u) ()
+collectionW ki (Field l lu fi _ fw) addMe deleteMe = toValidationWidget_ $ \i dv du des ->
   let
     dClass = ("form-control " <>) <$> errorClass i des
   in do
@@ -107,13 +107,13 @@ collectionW ki (Field l lu fi _ fw) addMe deleteMe i dv du des =
           du' = snd <$> dvu'
         el "div" $ do
         -- divClass "form-group" $ do
-          vwo' <- fw (fi i') (view l <$> dv') (view lu <$> du') $ filter (matchOrDescendant i' . view wiId) <$> des
+          vwo' <- runValidationWidget_ fw (fi i') (view l <$> dv') (view lu <$> du') $ filter (matchOrDescendant i' . view wiId) <$> des
           eDel <- deleteMe
           pure (vwo', eDel)
 
       pure $ gatherCollectionEvents eAdd dm
 
-    errorsForId i des
+    runValidationWidget errorsForId i dv du des
     pure vwo
 
 collectionF :: forall t m e f f' u u' k. (MonadWidget t m, NFunctor f', HasErrorMessage e, Num k, Enum k, Ord k)

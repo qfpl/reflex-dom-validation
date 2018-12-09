@@ -139,19 +139,18 @@ testCollectionsF =
   let
     tf =
       togglesF @t @m @e @TestCollections @TestCollectionsU
-    testCollectionsV i tc =
+    testCollectionsV = toValidationFn $ \i tc ->
       TestCollections <$>
-        fieldValidation (completedWithReasonF @t @m) i tc <*>
-        ((fieldValidation tf i tc) `bindValidation`
+        runValidationFn (fieldValidation (completedWithReasonF @t @m)) i tc <*>
+        ((runValidationFn (fieldValidation tf) i tc) `bindValidation`
           (\(Compose xs) -> if length xs < 2
                   then (Failure . pure . WithId (fieldId tf i) $ _CollectionTooSmall # ())
                   else Success xs)) <*>
-      fieldValidation (fooF @t @m @e @TestCollections @TestCollectionsU) i tc
-    testCollectionsW i dv du de =
-      (\x y z -> x <> y <> z) <$>
-        fieldWidget completedWithReasonF i dv du de <*>
-        fieldWidget togglesF i dv du de <*>
-        fieldWidget fooF i dv du de
+        runValidationFn (fieldValidation (fooF @t @m @e @TestCollections @TestCollectionsU)) i tc
+    testCollectionsW =
+        fieldWidget completedWithReasonF >>
+        fieldWidget togglesF >>
+        fieldWidget fooF
   in
     Field testCollections testCollectionsU (idApp "-tc") testCollectionsV testCollectionsW
 
