@@ -463,7 +463,7 @@ fooAW :: ( MonadWidget t m
          )
       => ValidationWidget t e (Wrap Day) u m ()
 fooAW =
-  validWidget $ ValidWidgetConfig (Just "A") dayConfigBuilder
+  validWidget (ValidWidgetConfig (Just "A") dayConfigBuilder)
 
 fooAF :: ( MonadWidget t m
          , HasErrorMessage e

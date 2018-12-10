@@ -8,6 +8,9 @@ Portability : non-portable
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Reflex.Dom.Validation.Bootstrap.Html5 where
 
 import Control.Monad (forM_)
@@ -24,9 +27,10 @@ import Reflex.Dom.Core
 
 import Reflex.Dom.Validation
 import Reflex.Dom.Validation.Error
-import Reflex.Dom.Validation.Id
-import Reflex.Dom.Validation.Wrap
 import Reflex.Dom.Validation.Html5
+import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Requires
+import Reflex.Dom.Validation.Wrap
 import Reflex.Dom.Validation.Bootstrap.Errors
 
 data ValidWidgetConfig t m e a =
@@ -37,9 +41,13 @@ data ValidWidgetConfig t m e a =
 
 makeLenses ''ValidWidgetConfig
 
-validWidget :: (MonadWidget t m, HasErrorMessage e, HasValidityError e)
-           => ValidWidgetConfig t m e a
-           -> ValidationWidget t e (Wrap a) u m ()
+validWidget ::
+  ( MonadWidget t m
+  , HasErrorMessage e
+  , HasValidityError e
+  )
+  => ValidWidgetConfig t m e a
+  -> ValidationWidget t e (Wrap a) u m ()
 validWidget vwc = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
   let it = idToText i
 
@@ -61,4 +69,5 @@ validWidget vwc = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ 
     eChange = Endo . const . Wrap <$> leftmost [Just <$> eSuccess, Nothing <$ eFailure]
 
   _ <- runValidationWidget errorsForId i dv du des
+
   pure $ ValidationWidgetOutput dFailure eChange never

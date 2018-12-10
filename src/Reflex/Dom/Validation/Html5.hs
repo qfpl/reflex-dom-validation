@@ -9,9 +9,13 @@ Portability : non-portable
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Reflex.Dom.Validation.Html5 where
 
 import Control.Monad (join)
+import Data.Monoid (Endo(..))
 import Text.Read (readMaybe)
 
 import GHC.Generics (Generic)
@@ -40,6 +44,7 @@ import Reflex.Dom.Core
 import Reflex.Dom.Validation
 import Reflex.Dom.Validation.Error
 import Reflex.Dom.Validation.Id
+import Reflex.Dom.Validation.Requires
 import Reflex.Dom.Validation.Wrap
 
 import Data.Time.Calendar
@@ -179,6 +184,18 @@ colourConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     (fmapMaybe unWrap $ updated dv)
     dattrs
 
+optionalColourConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                            => ValidInputConfigBuilder t m e (Maybe (Colour Double))
+optionalColourConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (maybe "" (Text.pack . sRGB24show))
+    (Success . fmap fst . headMay . sRGB24reads . Text.unpack)
+    "color"
+    (unWrap iv)
+    (join . unWrap <$> updated dv)
+    dattrs
+
 dayConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
                  => ValidInputConfigBuilder t m e Day
 dayConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
@@ -189,6 +206,18 @@ dayConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     "date"
     (unWrap iv)
     (fmapMaybe unWrap $ updated dv)
+    dattrs
+
+optionalDayConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                         => ValidInputConfigBuilder t m e (Maybe Day)
+optionalDayConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (maybe "" (Text.pack . formatTime defaultTimeLocale "%Y-%m-%d"))
+    (Success . fmap fst . headMay . readSTime False defaultTimeLocale "%Y-%m-%d" . Text.unpack)
+    "date"
+    (unWrap iv)
+    (join . unWrap <$> updated dv)
     dattrs
 
 intConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
@@ -203,6 +232,18 @@ intConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     (fmapMaybe unWrap $ updated dv)
     (pure ("placeholder" =: "0") <> dattrs)
 
+optionalIntConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                         => ValidInputConfigBuilder t m e (Maybe Int)
+optionalIntConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (maybe "" (Text.pack . show))
+    (Success . readMaybe . Text.unpack)
+    "number"
+    (unWrap iv)
+    (join . unWrap <$> updated dv)
+    (pure ("placeholder" =: "0") <> dattrs)
+
 decimalConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
                      => ValidInputConfigBuilder t m e Double
 decimalConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
@@ -213,4 +254,16 @@ decimalConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     "number"
     (unWrap iv)
     (fmapMaybe unWrap $ updated dv)
+    (pure ("placeholder" =: "0.00" <> "step" =: "0.01") <> dattrs)
+
+optionalDecimalConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                             => ValidInputConfigBuilder t m e (Maybe Double)
+optionalDecimalConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (maybe "" (Text.pack . show))
+    (Success . readMaybe . Text.unpack)
+    "number"
+    (unWrap iv)
+    (join . unWrap <$> updated dv)
     (pure ("placeholder" =: "0.00" <> "step" =: "0.01") <> dattrs)
