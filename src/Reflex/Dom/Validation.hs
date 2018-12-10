@@ -31,7 +31,7 @@ import Control.Monad (void, join)
 import Control.Monad.Fix (MonadFix)
 import Data.Bifunctor (first)
 import Data.Bool (bool)
-import Data.Foldable (traverse_)
+import Data.Foldable (traverse_, fold)
 import Data.Functor.Classes
 import Data.Functor.Compose (Compose(..))
 import Data.List (nub)
@@ -50,6 +50,7 @@ import Control.Monad.State (StateT(..), MonadState(..), runStateT, evalStateT, m
 import Control.Lens hiding (element)
 
 import Reflex.Dom.Core
+import Data.Functor.Misc
 
 import Data.Validation
 import Data.Aeson (ToJSON(..), FromJSON(..), ToJSON1(..), FromJSON1(..))
@@ -243,60 +244,77 @@ instance NotReady t m => NotReady t (ValidationWidget t e f u m) where
   notReadyUntil = lift . notReadyUntil
   notReady = lift notReady
 
--- instance (MonadHold t m, Adjustable t m) => Adjustable t (ValidationWidget t e f u m) where
---   runWithReplace a0 a' = do
---     r <- ask
---     old <- get
---     (x, e) <- lift $ runWithReplace (runValidationWidget' a0 r old) $
---       fmap (\w' -> runValidationWidget' w' r old) a'
---     put =<< switchValidationWidgetOutput (snd x) (snd <$> e)
---     pure (fst x, fmap fst e)
+instance (MonadHold t m, Adjustable t m) => Adjustable t (ValidationWidget t e f u m) where
+  runWithReplace a0 a' = do
+    r <- ask
+    old <- get
+    (x, e) <- lift $ runWithReplace (runValidationWidget' a0 r old) $
+      fmap (\w' -> runValidationWidget' w' r old) a'
+    put =<< switchValidationWidgetOutput (snd x) (snd <$> e)
+    pure (fst x, fmap fst e)
 
--- -- TODO: make this not super dodgy
--- -- at the moment we have Dynamics and Events in the state
--- -- and we aren't dealing with them here
+  traverseIntMapWithKeyWithAdjust f dm0 dm' = do
+    r <- ask
+    old <- get
+    (i, e) <- lift $ traverseIntMapWithKeyWithAdjust (\k v -> runValidationWidget' (f k v) r old) dm0 dm'
 
---   traverseIntMapWithKeyWithAdjust f dm0 dm' = do
---     r <- ask
---     old <- get
---     (i, e) <- lift $ traverseIntMapWithKeyWithAdjust (\k v -> runValidationWidget' (f k v) r old) dm0 dm'
+    -- TODO double check all of the handling of the state here
+    let
+      mVwo = fmap snd i
+      emVwo = fmap (fmap snd) e
+      switchMe = switchHoldPromptOnlyIncremental mergeIntIncremental coincidencePatchIntMap
+      distributeIntOverDynPure =  fmap dmapToIntMap . distributeDMapOverDynPure . intMapWithFunctorToDMap
+      joinDynThroughInt = (distributeIntOverDynPure =<<)
 
---     traverse_ (modify . (<>) . snd) i
+    dE <- incrementalToDynamic <$> holdIncremental (fmap _vwoFailures mVwo) (fmap (fmap _vwoFailures) emVwo)
+    eF <- switchMe (fmap _vwoSuccesses mVwo) (fmap (fmap _vwoSuccesses) emVwo)
+    eU <- switchMe (fmap _vwoUI mVwo) (fmap (fmap _vwoUI) emVwo)
 
---     pure (fmap fst i, fmap (fmap fst) e)
+    put $ ValidationWidgetOutput (fold <$> joinDynThroughInt dE) (fold <$> eF) (fold <$> eU)
 
--- -- TODO: make this not super dodgy
--- -- at the moment we have Dynamics and Events in the state
--- -- and we aren't dealing with them here
+    pure (fmap fst i, fmap (fmap fst) e)
 
---   traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = do
---     r <- ask
---     old <- get
---     (i, e) <- lift $ traverseDMapWithKeyWithAdjustWithMove (\k v -> fmap (\(x,y) -> Compose (y, x)) . runValidationWidget' (f k v) r $ old) dm0 dm'
+  traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = do
+    r <- ask
+    old <- get
+    (i, e) <- lift $ traverseDMapWithKeyWithAdjustWithMove (\k v -> fmap (\(x,y) -> Compose (y, x)) . runValidationWidget' (f k v) r $ old) dm0 dm'
 
---     put . DMap.foldrWithKey (\_ v b -> (b <>) . fst . getCompose $ v) old $ i
+    -- TODO: make this not super dodgy
+    -- at the moment we have Dynamics and Events in the state
+    -- and we aren't dealing with them here
+    -- put . DMap.foldrWithKey (\_ v b -> (b <>) . fst . getCompose $ v) old $ i
 
---     pure (DMap.map (snd . getCompose) i, mapPatchDMapWithMove (snd . getCompose) <$> e)
+    let
+      -- mVwo = DMap.map (Const . fst . getCompose) i
+      -- emVwo = mapPatchDMapWithMove (Const . fst . getCompose) <$> e
+      -- switchMe = switchHoldPromptOnlyIncremental mergeIntIncremental coincidencePatchIntMap
 
--- instance (DomBuilder t m, MonadHold t m, MonadFix m) => DomBuilder t (ValidationWidget t e f u m) where
---   type DomBuilderSpace (ValidationWidget t e f u m) = DomBuilderSpace m
---   textNode = liftTextNode
---   element elementTag cfg (ValidationWidget child) = ValidationWidget $ do
---     r <- ask
---     old <- get
---     (l, (a, new)) <- lift $ lift $ element elementTag cfg $ runStateT (runReaderT child r) old
---     put new
---     return (l, a)
---   inputElement = lift . inputElement
---   textAreaElement = lift . textAreaElement
---   selectElement cfg (ValidationWidget child) = ValidationWidget $ do
---     r <- ask
---     old <- get
---     (l, (a, new)) <- lift $ lift $ selectElement cfg $ runStateT (runReaderT child r) old
---     put new
---     return (l, a)
---   placeRawElement = lift . placeRawElement
---   wrapRawElement e = lift . wrapRawElement e
+    -- dE <- _
+    -- eF <- _
+    -- eU <- _
+    -- put $ ValidationWidgetOutput dE eF eU
+
+    pure (DMap.map (snd . getCompose) i, mapPatchDMapWithMove (snd . getCompose) <$> e)
+
+instance (DomBuilder t m, MonadHold t m, MonadFix m) => DomBuilder t (ValidationWidget t e f u m) where
+  type DomBuilderSpace (ValidationWidget t e f u m) = DomBuilderSpace m
+  textNode = liftTextNode
+  element elementTag cfg (ValidationWidget child) = ValidationWidget $ do
+    r <- ask
+    old <- get
+    (l, (a, new)) <- lift $ lift $ element elementTag cfg $ runStateT (runReaderT child r) old
+    put new
+    return (l, a)
+  inputElement = lift . inputElement
+  textAreaElement = lift . textAreaElement
+  selectElement cfg (ValidationWidget child) = ValidationWidget $ do
+    r <- ask
+    old <- get
+    (l, (a, new)) <- lift $ lift $ selectElement cfg $ runStateT (runReaderT child r) old
+    put new
+    return (l, a)
+  placeRawElement = lift . placeRawElement
+  wrapRawElement e = lift . wrapRawElement e
 
 data Field t m e f f' u u' where
   Field :: NFunctor f'
