@@ -30,7 +30,7 @@ errorClass i des =
   bool "is-valid" "is-invalid" . hasMatchingId i <$> des
 
 errorsForId :: (MonadWidget t m, HasErrorMessage e)
-            => ValidationWidget t m e f u ()
+            => ValidationWidget t e f u m ()
 errorsForId = toValidationWidget_ $ \i _ _ des ->
   let
     dErrors = fmap (errorMessage . view wiValue) . ffilter ((== i) . view wiId) <$> des

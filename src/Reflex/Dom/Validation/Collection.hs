@@ -91,7 +91,7 @@ collectionW :: forall t m e f u k. (MonadWidget t m, HasErrorMessage e, Num k, E
       -> Field t m e f f u u
       -> m (Event t (f Maybe, u))
       -> m (Event t ())
-      -> ValidationWidget t m e (Compose (Map k) f) (Map k u) ()
+      -> ValidationWidget t e (Compose (Map k) f) (Map k u) m ()
 collectionW ki (Field l lu fi _ fw) addMe deleteMe = toValidationWidget_ $ \i dv du des ->
   let
     dClass = ("form-control " <>) <$> errorClass i des
@@ -113,7 +113,7 @@ collectionW ki (Field l lu fi _ fw) addMe deleteMe = toValidationWidget_ $ \i dv
 
       pure $ gatherCollectionEvents eAdd dm
 
-    runValidationWidget errorsForId i dv du des
+    _ <- runValidationWidget errorsForId i dv du des
     pure vwo
 
 collectionF :: forall t m e f f' u u' k. (MonadWidget t m, NFunctor f', HasErrorMessage e, Num k, Enum k, Ord k)

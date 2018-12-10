@@ -55,7 +55,7 @@ makeLenses ''CheckboxWidgetConfig
 
 checkboxWidget :: (MonadWidget t m, HasErrorMessage e, Ord c)
                => CheckboxWidgetConfig c
-               -> ValidationWidget t m e (Wrap (Set c)) u ()
+               -> ValidationWidget t e (Wrap (Set c)) u m ()
 checkboxWidget cwc = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
   let
     it = idToText i
@@ -81,7 +81,7 @@ checkboxWidget cwc = toValidationWidget_ $ \i dv du des -> divClass "form-group"
       text kl
     let ev' = cb ^. checkbox_change
 
-    runValidationWidget errorsForId i dv du des
+    _ <- runValidationWidget errorsForId i dv du des
 
     pure $ bool (Set.delete v) (Set.insert v) <$> ev'
 

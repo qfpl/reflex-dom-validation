@@ -79,7 +79,7 @@ import Reflex.Dom.Validation.Wrap
 -- type ValidationFn e f f' =
 --   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
 
-data ValidationCtx f = 
+data ValidationCtx f =
   ValidationCtx {
     _vcId :: Id
   , _vcInput :: f Maybe
@@ -87,18 +87,24 @@ data ValidationCtx f =
 
 makeLenses ''ValidationCtx
 
-newtype ValidationFn' e f a = 
-  ValidationFn' { 
+newtype ValidationFn' e f a =
+  ValidationFn' {
     unValidationFn :: ReaderT (ValidationCtx f) (Validation (NonEmpty (WithId e))) a
   } deriving (Functor, Applicative)
 
 type ValidationFn e f f' = ValidationFn' e f (f' Identity)
 
-toValidationFn :: (Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)) -> ValidationFn e f f'
-toValidationFn f = ValidationFn' (ReaderT (\(ValidationCtx i v) -> f i v))
+toValidationFn :: (Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity))
+               -> ValidationFn e f f'
+toValidationFn f =
+  ValidationFn' (ReaderT (\(ValidationCtx i v) -> f i v))
 
-runValidationFn :: ValidationFn e f f' -> Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
-runValidationFn f i v = runReaderT (unValidationFn f) (ValidationCtx i v)
+runValidationFn :: ValidationFn e f f'
+                -> Id
+                -> f Maybe
+                -> Validation (NonEmpty (WithId e)) (f' Identity)
+runValidationFn f i v =
+  runReaderT (unValidationFn f) (ValidationCtx i v)
 
 data ValidationWidgetCtx t e f u =
   ValidationWidgetCtx {
@@ -119,6 +125,16 @@ data ValidationWidgetOutput t e f u =
 
 makeLenses ''ValidationWidgetOutput
 
+switchValidationWidgetOutput :: (Reflex t, MonadHold t m)
+                             => ValidationWidgetOutput t e f u
+                             -> Event t (ValidationWidgetOutput t e f u)
+                             -> m (ValidationWidgetOutput t e f u)
+switchValidationWidgetOutput vwo e = do
+  dE <- holdDyn (_vwoFailures vwo) (_vwoFailures <$> e)
+  eF <- switchHoldPromptOnly (_vwoSuccesses vwo) (_vwoSuccesses <$> e)
+  eU <- switchHoldPromptOnly (_vwoUI vwo) (_vwoUI <$> e)
+  pure $ ValidationWidgetOutput (join dE) eF eU
+
 instance Reflex t => Semigroup (ValidationWidgetOutput t e f u) where
   ValidationWidgetOutput f1 s1 u1 <> ValidationWidgetOutput f2 s2 u2 =
     ValidationWidgetOutput (f1 <> f2) (s1 <> s2) (u1 <> u2)
@@ -127,124 +143,160 @@ instance Reflex t => Monoid (ValidationWidgetOutput t e f u) where
   mempty = ValidationWidgetOutput mempty mempty mempty
   mappend = (<>)
 
--- type ValidationWidget t m e f u =
---   Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)
-
-newtype ValidationWidget t m e f u a =
+newtype ValidationWidget t e f u m a =
   ValidationWidget {
     unValidationWidget :: ReaderT (ValidationWidgetCtx t e f u) (StateT (ValidationWidgetOutput t e f u) m) a
   } deriving (Functor, Applicative, Monad, MonadFix, MonadReader (ValidationWidgetCtx t e f u), MonadState (ValidationWidgetOutput t e f u))
 
-liftW :: Monad m => m a -> ValidationWidget t m e f u a
-liftW x = ValidationWidget . lift . lift $ x
+toValidationWidget :: (Functor m, Reflex t)
+                   => (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u))
+                   -> ValidationWidget t e f u m a
+toValidationWidget f =
+  ValidationWidget . ReaderT $ \(ValidationWidgetCtx i dv du des) ->
+    StateT $ \s ->
+      fmap (s <>) <$> f i dv du des
 
-unliftW :: (Functor m, Reflex t) => (forall x. m x -> m x) -> ValidationWidget t m e f u () -> ValidationWidget t m e f u ()
+toValidationWidget_ :: (Functor m, Reflex t)
+                    => (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u))
+                    -> ValidationWidget t e f u m ()
+toValidationWidget_ f =
+  toValidationWidget (\i dv du des -> fmap (\x -> ((), x)) (f i dv du des))
+
+runValidationWidget' :: ValidationWidget t e f u m a
+                     -> ValidationWidgetCtx t e f u
+                     -> ValidationWidgetOutput t e f u
+                     -> m (a, ValidationWidgetOutput t e f u)
+runValidationWidget' w r =
+  runStateT (runReaderT (unValidationWidget w) r)
+
+runValidationWidget :: Reflex t
+                    => ValidationWidget t e f u m a
+                    -> Id
+                    -> Dynamic t (f Maybe)
+                    -> Dynamic t u
+                    -> Dynamic t [WithId e]
+                    -> m (a, ValidationWidgetOutput t e f u)
+runValidationWidget w i dv du des =
+  runValidationWidget' w (ValidationWidgetCtx i dv du des) mempty
+
+runValidationWidget_ :: (Functor m, Reflex t)
+                     => ValidationWidget t e f u m a
+                     -> Id
+                     -> Dynamic t (f Maybe)
+                     -> Dynamic t u
+                     -> Dynamic t [WithId e]
+                     -> m (ValidationWidgetOutput t e f u)
+runValidationWidget_ f i dv du des =
+  snd <$> runValidationWidget f i dv du des
+
+instance MonadTrans (ValidationWidget t e f u) where
+  lift = ValidationWidget . lift . lift
+
+unliftW :: (Functor m, Reflex t)
+        => (forall x. m x -> m x)
+        -> ValidationWidget t e f u m ()
+        -> ValidationWidget t e f u m ()
 unliftW f w = toValidationWidget $ \i dv du des ->
   f $ runValidationWidget w i dv du des
 
-instance PerformEvent t m => PerformEvent t (ValidationWidget t m e f u) where
-  type Performable (ValidationWidget t m e f u) = Performable m
+instance PerformEvent t m => PerformEvent t (ValidationWidget t e f u m) where
+  type Performable (ValidationWidget t e f u m) = Performable m
   {-# INLINABLE performEvent_ #-}
-  performEvent_ e = liftW $ performEvent_ e
+  performEvent_ e = lift $ performEvent_ e
   {-# INLINABLE performEvent #-}
-  performEvent e = liftW $ performEvent e
+  performEvent e = lift $ performEvent e
 
-instance PostBuild t m => PostBuild t (ValidationWidget t m e f u) where
+instance PostBuild t m => PostBuild t (ValidationWidget t e f u m) where
   {-# INLINABLE getPostBuild #-}
-  getPostBuild = liftW getPostBuild
+  getPostBuild = lift getPostBuild
 
-instance MonadRef m => MonadRef (ValidationWidget t m e f u) where
-  type Ref (ValidationWidget t m e f u) = Ref m
+instance MonadRef m => MonadRef (ValidationWidget t e f u m) where
+  type Ref (ValidationWidget t e f u m) = Ref m
   {-# INLINABLE newRef #-}
-  newRef = liftW . newRef
+  newRef = lift . newRef
   {-# INLINABLE readRef #-}
-  readRef = liftW . readRef
+  readRef = lift . readRef
   {-# INLINABLE writeRef #-}
-  writeRef r = liftW . writeRef r
+  writeRef r = lift . writeRef r
 
-instance MonadAtomicRef m => MonadAtomicRef (ValidationWidget t m e f u) where
+instance MonadAtomicRef m => MonadAtomicRef (ValidationWidget t e f u m) where
   {-# INLINABLE atomicModifyRef #-}
-  atomicModifyRef r = liftW . atomicModifyRef r
+  atomicModifyRef r = lift . atomicModifyRef r
 
-instance MonadSample t m => MonadSample t (ValidationWidget t m e f u) where
+instance MonadSample t m => MonadSample t (ValidationWidget t e f u m) where
   {-# INLINABLE sample #-}
-  sample = liftW . sample
+  sample = lift . sample
 
-instance MonadHold t m => MonadHold t (ValidationWidget t m e f u) where
+instance MonadHold t m => MonadHold t (ValidationWidget t e f u m) where
   {-# INLINABLE hold #-}
-  hold v0 v' = liftW $ hold v0 v'
+  hold v0 v' = lift $ hold v0 v'
   {-# INLINABLE holdDyn #-}
-  holdDyn v0 v' = liftW $ holdDyn v0 v'
+  holdDyn v0 v' = lift $ holdDyn v0 v'
   {-# INLINABLE holdIncremental #-}
-  holdIncremental v0 v' = liftW $ holdIncremental v0 v'
+  holdIncremental v0 v' = lift $ holdIncremental v0 v'
   {-# INLINABLE buildDynamic #-}
-  buildDynamic a0 = liftW . buildDynamic a0
+  buildDynamic a0 = lift . buildDynamic a0
   {-# INLINABLE headE #-}
-  headE = liftW . headE
+  headE = lift . headE
 
-instance NotReady t m => NotReady t (ValidationWidget t m e f u) where
-  notReadyUntil = liftW . notReadyUntil
-  notReady = liftW notReady
+instance NotReady t m => NotReady t (ValidationWidget t e f u m) where
+  notReadyUntil = lift . notReadyUntil
+  notReady = lift notReady
 
--- TODO: make this not super dodgy
--- at the moment we have Dynamics and Events in the state
--- and we aren't dealing with them here
---
--- instance (Adjustable t m) => Adjustable t (ValidationWidget t m e f u) where
+-- instance (MonadHold t m, Adjustable t m) => Adjustable t (ValidationWidget t e f u m) where
 --   runWithReplace a0 a' = do
 --     r <- ask
 --     old <- get
---     ((x, new), e) <- liftW $ runWithReplace (flip runStateT old . flip runReaderT r . unValidationWidget $ a0) $ fmap (flip runStateT old . flip runReaderT r . unValidationWidget) a'
---     put new
---     pure (x, fmap fst e)
+--     (x, e) <- lift $ runWithReplace (runValidationWidget' a0 r old) $
+--       fmap (\w' -> runValidationWidget' w' r old) a'
+--     put =<< switchValidationWidgetOutput (snd x) (snd <$> e)
+--     pure (fst x, fmap fst e)
+
+-- -- TODO: make this not super dodgy
+-- -- at the moment we have Dynamics and Events in the state
+-- -- and we aren't dealing with them here
+
 --   traverseIntMapWithKeyWithAdjust f dm0 dm' = do
 --     r <- ask
 --     old <- get
---     (i, e) <- liftW $ traverseIntMapWithKeyWithAdjust (\k v -> flip runStateT old . flip runReaderT r . unValidationWidget $ f k v) dm0 dm'
+--     (i, e) <- lift $ traverseIntMapWithKeyWithAdjust (\k v -> runValidationWidget' (f k v) r old) dm0 dm'
+
 --     traverse_ (modify . (<>) . snd) i
+
 --     pure (fmap fst i, fmap (fmap fst) e)
+
+-- -- TODO: make this not super dodgy
+-- -- at the moment we have Dynamics and Events in the state
+-- -- and we aren't dealing with them here
+
 --   traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = do
 --     r <- ask
 --     old <- get
---     (i, e) <- liftW $ traverseDMapWithKeyWithAdjustWithMove (\k v -> fmap (\(x,y) -> Compose (y, x)) . flip runStateT old . flip runReaderT r . unValidationWidget $ f k v) dm0 dm'
+--     (i, e) <- lift $ traverseDMapWithKeyWithAdjustWithMove (\k v -> fmap (\(x,y) -> Compose (y, x)) . runValidationWidget' (f k v) r $ old) dm0 dm'
+
 --     put . DMap.foldrWithKey (\_ v b -> (b <>) . fst . getCompose $ v) old $ i
+
 --     pure (DMap.map (snd . getCompose) i, mapPatchDMapWithMove (snd . getCompose) <$> e)
--- 
--- instance (DomBuilder t m, MonadHold t m, MonadFix m) => DomBuilder t (ValidationWidget t m e f u) where
---   type DomBuilderSpace (ValidationWidget t m e f u) = DomBuilderSpace m
---   textNode = liftW . textNode
+
+-- instance (DomBuilder t m, MonadHold t m, MonadFix m) => DomBuilder t (ValidationWidget t e f u m) where
+--   type DomBuilderSpace (ValidationWidget t e f u m) = DomBuilderSpace m
+--   textNode = liftTextNode
 --   element elementTag cfg (ValidationWidget child) = ValidationWidget $ do
 --     r <- ask
 --     old <- get
---     (el, (a, new)) <- lift $ lift $ element elementTag cfg $ runStateT (runReaderT child r) old
+--     (l, (a, new)) <- lift $ lift $ element elementTag cfg $ runStateT (runReaderT child r) old
 --     put new
---     return (el, a)
---   inputElement = liftW . inputElement
---   textAreaElement = liftW . textAreaElement
+--     return (l, a)
+--   inputElement = lift . inputElement
+--   textAreaElement = lift . textAreaElement
 --   selectElement cfg (ValidationWidget child) = ValidationWidget $ do
 --     r <- ask
 --     old <- get
---     (el, (a, new)) <- lift $ lift $ selectElement cfg $ runStateT (runReaderT child r) old
+--     (l, (a, new)) <- lift $ lift $ selectElement cfg $ runStateT (runReaderT child r) old
 --     put new
---     return (el, a)
---   placeRawElement = liftW . placeRawElement
---   wrapRawElement e = liftW . wrapRawElement e
-
-toValidationWidget :: (Functor m, Reflex t) => (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u)) -> ValidationWidget t m e f u a
-toValidationWidget f = 
-  ValidationWidget . ReaderT $ \(ValidationWidgetCtx i dv du des) -> 
-    StateT $ \s ->  do
-      fmap (s <>) <$> f i dv du des
-
-toValidationWidget_ :: (Functor m, Reflex t) => (Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)) -> ValidationWidget t m e f u ()
-toValidationWidget_ f = toValidationWidget (\i dv du des -> fmap (\x -> ((), x)) (f i dv du des))
-
-runValidationWidget :: Reflex t => ValidationWidget t m e f u a -> Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (a, ValidationWidgetOutput t e f u)
-runValidationWidget f i dv du des = 
-  runStateT (runReaderT (unValidationWidget f) (ValidationWidgetCtx i dv du des)) mempty
-
-runValidationWidget_ :: (Functor m, Reflex t) => ValidationWidget t m e f u a -> Id -> Dynamic t (f Maybe) -> Dynamic t u -> Dynamic t [WithId e] -> m (ValidationWidgetOutput t e f u)
-runValidationWidget_ f i dv du des = fmap snd $ runValidationWidget f i dv du des
+--     return (l, a)
+--   placeRawElement = lift . placeRawElement
+--   wrapRawElement e = lift . wrapRawElement e
 
 data Field t m e f f' u u' where
   Field :: NFunctor f'
@@ -252,7 +304,7 @@ data Field t m e f f' u u' where
         -> Lens' u u'
         -> (Id -> Id)
         -> ValidationFn e f' f'
-        -> ValidationWidget t m e f' u' ()
+        -> ValidationWidget t e f' u' m ()
         -> Field t m e f f' u u'
 
 fieldId :: Field t m e f f' u u' -> Id -> Id
@@ -266,7 +318,7 @@ fieldValidation :: Field t m e f f' u u' -> ValidationFn e f f'
 fieldValidation f@(Field l _ fi v _) = toValidationFn $ \i mf ->
   runValidationFn v (fi i) (view l mf)
 
-fieldWidget :: MonadWidget t m => Field t m e f f' u u' -> ValidationWidget t m e f u ()
+fieldWidget :: MonadWidget t m => Field t m e f f' u u' -> ValidationWidget t e f u m ()
 fieldWidget f@(Field l lu fi _ w) = toValidationWidget_ $ \i dv du de -> do
   let
     i' = fi i
@@ -277,13 +329,12 @@ optional :: ValidationFn e (Wrap (Maybe a)) (Wrap (Maybe a))
 optional = toValidationFn $ \_ ->
   Success . Wrap . Identity . join . unWrap
 
--- TODO required but blankable
 requiredMaybe :: HasNotSpecified e => ValidationFn e (Wrap (Maybe a)) (Wrap (Maybe a))
 requiredMaybe = toValidationFn $ \i ->
-  maybe 
-    (Failure . pure . WithId i $ _NotSpecified # ()) 
-    (Success . Wrap . Identity . Just) . 
-  join . 
+  maybe
+    (Failure . pure . WithId i $ _NotSpecified # ())
+    (Success . Wrap . Identity . Just) .
+  join .
   unWrap
 
 required :: HasNotSpecified e => ValidationFn e (Wrap a) (Wrap a)
@@ -360,6 +411,4 @@ wrapUpStorage f k ini kU iniU kE v = runStorageT LocalStorage $ do
   tellStorageInsert kE eE
 
   pure eI
-
-
 

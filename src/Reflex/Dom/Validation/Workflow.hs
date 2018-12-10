@@ -96,7 +96,7 @@ workflowWidget :: forall t m e f u.
                   (MonadWidget t m, Eq e, HasBadWorkflowIndex e, NFunctor f, AsWorkflowIndex u)
                => [WorkflowStep t m e f u]
                -> WorkflowWidgetConfig t m e
-               -> ValidationWidget t m e f u ()
+               -> ValidationWidget t e f u m ()
 workflowWidget [] _ = toValidationWidget_ $ \ _ _ _ _ ->
   pure mempty
 workflowWidget steps wwc = toValidationWidget_ $ \i dv du des ->

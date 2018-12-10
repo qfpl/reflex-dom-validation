@@ -59,3 +59,12 @@ instance NFunctor (Wrap a) where
 
 unwrapV :: Wrap a Identity -> a
 unwrapV = runIdentity . unWrap
+
+mapWrap :: Functor f => (a -> b) -> Wrap a f -> Wrap b f
+mapWrap f (Wrap x) = Wrap (fmap f x)
+
+pureWrap :: Applicative f => a -> Wrap a f
+pureWrap = Wrap . pure
+
+apWrap :: Applicative f => Wrap (a -> b) f -> Wrap a f -> Wrap b f
+apWrap (Wrap f) (Wrap x) = Wrap (f <*> x)

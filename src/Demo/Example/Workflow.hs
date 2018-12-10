@@ -214,7 +214,7 @@ fooNVx = toValidationFn $ \i v ->
 
 fooNWx :: (MonadWidget t m, HasErrorMessage e)
       => Text
-      -> ValidationWidget t m e (Wrap (Maybe Text)) u ()
+      -> ValidationWidget t e (Wrap (Maybe Text)) u m ()
 fooNWx l =
   textWidget (TextWidgetConfig (Just l) UpdateOnChange) SOptional
 
@@ -461,7 +461,7 @@ fooAW :: ( MonadWidget t m
          , HasErrorMessage e
          , HasValidityError e
          )
-      => ValidationWidget t m e (Wrap Day) u ()
+      => ValidationWidget t e (Wrap Day) u m ()
 fooAW =
   validWidget $ ValidWidgetConfig (Just "A") dayConfigBuilder
 
@@ -482,7 +482,7 @@ fooBV = toValidationFn $ \_ v ->
     _ -> Success . Wrap . Identity $ mempty
 
 fooBW :: (MonadWidget t m, HasErrorMessage e)
-      => ValidationWidget t m e (Wrap (Set Bar)) u ()
+      => ValidationWidget t e (Wrap (Set Bar)) u m ()
 fooBW =
   checkboxWidget . CheckboxWidgetConfig (Just "B") True $
     [ CheckboxOptionConfig "A" "-a" A
@@ -507,7 +507,7 @@ fooCV = toValidationFn $ \i v ->
       Success . Wrap . Identity $ Nothing
 
 fooCW :: (MonadWidget t m, HasErrorMessage e)
-      => ValidationWidget t m e (Wrap (Maybe Text)) u ()
+      => ValidationWidget t e (Wrap (Maybe Text)) u m ()
 fooCW =
   textWidget (TextWidgetConfig (Just "C") UpdateOnChange) SOptional
 
@@ -524,7 +524,7 @@ selectOV = toValidationFn $ \i v ->
     Wrap Nothing -> Failure . pure . WithId i $ _NotSpecified # ()
 
 selectOW :: (MonadWidget t m, HasErrorMessage e)
-         => ValidationWidget t m e (Wrap Bar) u ()
+         => ValidationWidget t e (Wrap Bar) u m ()
 selectOW =
   selectWidget A . SelectWidgetConfig (Just "One") $
     [ SelectOptionConfig "A" A
@@ -544,7 +544,7 @@ selectMaV = toValidationFn $ \i v ->
     Wrap Nothing -> Success . Wrap . Identity $ Nothing
 
 selectMaW :: (MonadWidget t m, HasErrorMessage e)
-          => ValidationWidget t m e (Wrap (Maybe Bar)) u ()
+          => ValidationWidget t e (Wrap (Maybe Bar)) u m ()
 selectMaW =
   selectOptionalWidget . SelectWidgetConfig (Just "Maybe") $
     [ SelectOptionConfig "A" A

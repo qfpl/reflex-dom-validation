@@ -68,7 +68,7 @@ toggleV = toValidationFn $ \i ->
   Success . Wrap . Identity . fromMaybe False . unWrap
 
 toggleW :: (MonadWidget t m)
-        => ValidationWidget t m e (Wrap Bool) u ()
+        => ValidationWidget t e (Wrap Bool) u m ()
 toggleW = toValidationWidget_ $ \i dv _ _ -> do
   let
     f = fromMaybe False . unWrap
@@ -92,7 +92,7 @@ itemV = toValidationFn $ \_ ->
   Success . Wrap . Identity . fromMaybe "" . unWrap
 
 itemW :: MonadWidget t m
-      => ValidationWidget t m e (Wrap Text) u ()
+      => ValidationWidget t e (Wrap Text) u m ()
 itemW = toValidationWidget_ $ \_ dv _ _ -> do
   let
     f = fromMaybe "" . unWrap
