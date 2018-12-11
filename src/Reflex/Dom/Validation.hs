@@ -77,9 +77,6 @@ import Reflex.Dom.Validation.Classes
 import Reflex.Dom.Validation.Id
 import Reflex.Dom.Validation.Wrap
 
--- type ValidationFn e f f' =
---   Id -> f Maybe -> Validation (NonEmpty (WithId e)) (f' Identity)
-
 data ValidationCtx f =
   ValidationCtx {
     _vcId :: Id
@@ -125,16 +122,6 @@ data ValidationWidgetOutput t e f u =
   }
 
 makeLenses ''ValidationWidgetOutput
-
-switchValidationWidgetOutput :: (Reflex t, MonadHold t m)
-                             => ValidationWidgetOutput t e f u
-                             -> Event t (ValidationWidgetOutput t e f u)
-                             -> m (ValidationWidgetOutput t e f u)
-switchValidationWidgetOutput vwo e = do
-  dE <- holdDyn (_vwoFailures vwo) (_vwoFailures <$> e)
-  eF <- switchHoldPromptOnly (_vwoSuccesses vwo) (_vwoSuccesses <$> e)
-  eU <- switchHoldPromptOnly (_vwoUI vwo) (_vwoUI <$> e)
-  pure $ ValidationWidgetOutput (join dE) eF eU
 
 instance Reflex t => Semigroup (ValidationWidgetOutput t e f u) where
   ValidationWidgetOutput f1 s1 u1 <> ValidationWidgetOutput f2 s2 u2 =
@@ -193,13 +180,6 @@ runValidationWidget_ f i dv du des =
 instance MonadTrans (ValidationWidget t e f u) where
   lift = ValidationWidget . lift . lift
 
-unliftW :: (Functor m, Reflex t)
-        => (forall x. m x -> m x)
-        -> ValidationWidget t e f u m ()
-        -> ValidationWidget t e f u m ()
-unliftW f w = toValidationWidget $ \i dv du des ->
-  f $ runValidationWidget w i dv du des
-
 instance PerformEvent t m => PerformEvent t (ValidationWidget t e f u m) where
   type Performable (ValidationWidget t e f u m) = Performable m
   {-# INLINABLE performEvent_ #-}
@@ -250,7 +230,15 @@ instance (MonadHold t m, Adjustable t m) => Adjustable t (ValidationWidget t e f
     old <- get
     (x, e) <- lift $ runWithReplace (runValidationWidget' a0 r old) $
       fmap (\w' -> runValidationWidget' w' r old) a'
-    put =<< switchValidationWidgetOutput (snd x) (snd <$> e)
+
+    let
+      x' = snd x
+      e' = snd <$> e
+    dE <- holdDyn (_vwoFailures x') (_vwoFailures <$> e')
+    eF <- switchHoldPromptOnly (_vwoSuccesses x') (_vwoSuccesses <$> e')
+    eU <- switchHoldPromptOnly (_vwoUI x') (_vwoUI <$> e')
+    put $ ValidationWidgetOutput (join dE) eF eU
+
     pure (fst x, fmap fst e)
 
   traverseIntMapWithKeyWithAdjust f dm0 dm' = do
@@ -259,6 +247,7 @@ instance (MonadHold t m, Adjustable t m) => Adjustable t (ValidationWidget t e f
     (i, e) <- lift $ traverseIntMapWithKeyWithAdjust (\k v -> runValidationWidget' (f k v) r old) dm0 dm'
 
     -- TODO double check all of the handling of the state here
+    -- particularly the parts that deal with the Dynamic
     let
       mVwo = fmap snd i
       emVwo = fmap (fmap snd) e
@@ -282,9 +271,9 @@ instance (MonadHold t m, Adjustable t m) => Adjustable t (ValidationWidget t e f
     -- TODO: make this not super dodgy
     -- at the moment we have Dynamics and Events in the state
     -- and we aren't dealing with them here
-    -- put . DMap.foldrWithKey (\_ v b -> (b <>) . fst . getCompose $ v) old $ i
+    put . DMap.foldrWithKey (\_ v b -> (b <>) . fst . getCompose $ v) old $ i
 
-    let
+    -- let
       -- mVwo = DMap.map (Const . fst . getCompose) i
       -- emVwo = mapPatchDMapWithMove (Const . fst . getCompose) <$> e
       -- switchMe = switchHoldPromptOnlyIncremental mergeIntIncremental coincidencePatchIntMap

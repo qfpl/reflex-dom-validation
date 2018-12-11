@@ -11,7 +11,12 @@ capturing constraints for the widget would be good
 doing something that makes writing fields for collections easier would also be good
 - are we then dealing with a Traversal / IxTraversal instead of a lens?
 
-
+combining the widget with the validation function would probably be good
+- possibly want to respond to validation events as input, 
+  use the same mechanism for returning errors,
+  would need a new mechanism for responding successful validations
+- would possibly want new type parameters lenses for validation context info (v and v')
+- really need to be sure this is going to work with workflows and collections
 
 
 - add the ability for custom attributes for all of the bootstrap widgets
