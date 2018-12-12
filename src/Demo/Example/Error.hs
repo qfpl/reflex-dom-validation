@@ -25,7 +25,7 @@ import Reflex.Dom.Validation.Error
 import Reflex.Dom.Validation.Html5
 import Reflex.Dom.Validation.Workflow
 
-import Demo.Example.CompletedWithReason
+import Demo.Example.Reason
 import Demo.Example.TestCollections
 import Demo.Example.Workflow
 

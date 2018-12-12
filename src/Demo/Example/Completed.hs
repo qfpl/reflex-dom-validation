@@ -32,7 +32,7 @@ instance AsCompleted (Wrap Bool) where
   completed = id
 
 completeW :: (MonadWidget t m, HasErrorMessage e)
-          => ValidationWidget t e (Wrap Bool) u m ()
+          => ValidationWidget t e (Wrap Bool) u v m ()
 completeW =
   radioWidget (RadioWidgetConfig (Just "Complete") False
                [ RadioOptionConfig "Complete" "-true" True
@@ -40,5 +40,5 @@ completeW =
                ]) (SRequired False)
 
 completedF :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e, AsCompleted f)
-           => Field t m e f (Wrap Bool) u ()
-completedF = Field completed united (idApp "-c") required completeW
+           => Field t m e f (Wrap Bool) u u v v
+completedF = Field completed id (flip const) (idApp "-c") required completeW

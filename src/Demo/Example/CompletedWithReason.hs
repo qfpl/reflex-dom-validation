@@ -15,9 +15,9 @@ Portability : non-portable
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeApplications #-}
 module Demo.Example.CompletedWithReason (
-    HasReasonRequiredForIncomplete(..)
-  , AsCompletedWithReason(..)
+    AsCompletedWithReason(..)
   , CompletedWithReason(..)
   , completedWithReasonF
   ) where
@@ -44,9 +44,6 @@ import Reflex.Dom.Validation.Wrap
 
 import Demo.Example.Completed
 import Demo.Example.Reason
-
-class HasReasonRequiredForIncomplete e where
-  _ReasonRequiredForIncomplete :: Prism' e ()
 
 data CompletedWithReason f = CompletedWithReason {
     _cwrCompleted :: Wrap Bool f
@@ -80,33 +77,35 @@ class AsCompletedWithReason f where
 instance AsCompletedWithReason CompletedWithReason where
   completedWithReason = id
 
-completedWithReasonF :: forall t m e f u.
+completedWithReasonF :: forall t m e f u v.
                      ( MonadWidget t m
                      , HasErrorMessage e
                      , HasNotSpecified e
                      , HasReasonRequiredForIncomplete e
                      , AsCompletedWithReason f
                      )
-                     => Field t m e f CompletedWithReason u ()
+                     => Field t m e f CompletedWithReason u u v (Wrap Bool Maybe)
 completedWithReasonF =
   let
-    fC =
-      completedF :: Field t m e CompletedWithReason (Wrap Bool) () ()
-    fR =
-      reasonF :: Field t m e CompletedWithReason (Wrap (Maybe Text)) () ()
+    -- fC =
+    --   completedF :: Field t m e CompletedWithReason (Wrap Bool) u u v va
+    -- fR =
+    --   reasonF :: Field t m e CompletedWithReason (Wrap (Maybe Text)) u u (Wrap Bool Maybe) (Wrap Bool Maybe)
 
-    f i c r =
-      if unwrapV c == False && unwrapV r == Nothing
-      then Failure . pure . WithId (fieldId fR i) $ _ReasonRequiredForIncomplete # ()
-      else Success $ CompletedWithReason c r
+    -- f i c r =
+    --   if unwrapV c == False && unwrapV r == Nothing
+    --   then Failure . pure . WithId (fieldId fR i) $ _ReasonRequiredForIncomplete # ()
+    --   else Success $ CompletedWithReason c r
 
-    completedWithReasonV = toValidationFn $ \i cr ->
-      runValidationFn (fieldValidation fC) i cr `bindValidation` \c ->
-      runValidationFn (fieldValidation fR) i cr `bindValidation` \r ->
-      f i c r
+    -- completedWithReasonV = toValidationFn $ \i v cr ->
+    --   runValidationFn (fieldValidation fC) i v cr `bindValidation` \c ->
+    --   runValidationFn (fieldValidation fR) i v cr `bindValidation` \r ->
+    --   f i c r
+    completedWithReasonV =
+      CompletedWithReason <$> fieldValidation (completedF @t @m) <*> fieldValidation (reasonF @t @m)
 
     completedWithReasonW =
       fieldWidget completedF >>
       fieldWidget reasonF
   in
-    Field completedWithReason united (idApp "-cwr") completedWithReasonV completedWithReasonW
+    Field completedWithReason id (const . view (completedWithReason . completed)) (idApp "-cwr") completedWithReasonV completedWithReasonW

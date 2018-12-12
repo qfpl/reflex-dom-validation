@@ -47,8 +47,8 @@ validWidget ::
   , HasValidityError e
   )
   => ValidWidgetConfig t m e a
-  -> ValidationWidget t e (Wrap a) u m ()
-validWidget vwc = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
+  -> ValidationWidget t e (Wrap a) u v m ()
+validWidget vwc = toValidationWidget_ $ \i dv du dc des -> divClass "form-group" $ do
   let it = idToText i
 
   forM_ (vwc ^. vwcLabel) $
@@ -68,6 +68,6 @@ validWidget vwc = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ 
   let
     eChange = Endo . const . Wrap <$> leftmost [Just <$> eSuccess, Nothing <$ eFailure]
 
-  _ <- runValidationWidget errorsForId i dv du des
+  _ <- runValidationWidget errorsForId i dv du dc des
 
   pure $ ValidationWidgetOutput dFailure eChange never

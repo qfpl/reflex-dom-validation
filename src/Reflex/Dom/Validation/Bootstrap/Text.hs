@@ -87,8 +87,8 @@ instance TextChange 'Optional where
 textWidget :: (MonadWidget t m, HasErrorMessage e, TextChange r)
            => TextWidgetConfig
            -> SRequirement r Text
-           -> ValidationWidget t e (Wrap (Requires r Text)) u m ()
-textWidget twc sr = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
+           -> ValidationWidget t e (Wrap (Requires r Text)) u v m ()
+textWidget twc sr = toValidationWidget_ $ \i dv du dc des -> divClass "form-group" $ do
   let it = idToText i
   forM_ (twc ^. twcLabel) $
      elAttr "label" ("for" =: it) . text
@@ -104,7 +104,7 @@ textWidget twc sr = toValidationWidget_ $ \i dv du des -> divClass "form-group" 
                     (("class" =:) . ("form-control " <>) <$> errorClass i des)
   let ev' = textUpdate (view twcUpdate twc) (value ti) (ti ^. textInput_input) (ti ^. textInput_keypress)
 
-  _ <- runValidationWidget errorsForId i dv du des
+  _ <- runValidationWidget errorsForId i dv du dc des
 
   let
     eChange = textChange sr ev'
@@ -114,8 +114,8 @@ textWidget twc sr = toValidationWidget_ $ \i dv du des -> divClass "form-group" 
 textAreaWidget :: (MonadWidget t m, HasErrorMessage e, TextChange r)
                => TextWidgetConfig
                -> SRequirement r Text
-               -> ValidationWidget t e (Wrap (Requires r Text)) u m ()
-textAreaWidget twc sr = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
+               -> ValidationWidget t e (Wrap (Requires r Text)) u v m ()
+textAreaWidget twc sr = toValidationWidget_ $ \i dv du dc des -> divClass "form-group" $ do
   let it = idToText i
   forM_ (twc ^. twcLabel) $
      elAttr "label" ("for" =: it) . text
@@ -131,7 +131,7 @@ textAreaWidget twc sr = toValidationWidget_ $ \i dv du des -> divClass "form-gro
                     (("class" =:) . ("form-control " <>) <$> errorClass i des)
   let ev' = textUpdate (view twcUpdate twc) (value ta) (ta ^. textArea_input) (ta ^. textArea_keypress)
 
-  _ <- runValidationWidget errorsForId i dv du des
+  _ <- runValidationWidget errorsForId i dv du dc des
 
   let
     eChange = textChange sr ev'

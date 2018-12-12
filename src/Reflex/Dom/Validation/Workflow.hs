@@ -52,10 +52,10 @@ data StepRequirement =
 
 makePrisms ''StepRequirement
 
-data WorkflowStep t m e f u where
-  WorkflowStep :: Text -> Field t m e f f' u u' -> [WorkflowStep t m e f' u'] -> WorkflowStep t m e f u
+data WorkflowStep t m e f u v where
+  WorkflowStep :: Text -> Field t m e f f' u u' v v' -> [WorkflowStep t m e f' u' v'] -> WorkflowStep t m e f u v
 
-stepLabel :: WorkflowStep t m e f u -> Text
+stepLabel :: WorkflowStep t m e f u v -> Text
 stepLabel (WorkflowStep l _ _) = l
 
 data WorkflowWidgetConfig t m e =
@@ -92,14 +92,14 @@ class HasBadWorkflowIndex e where
 class AsWorkflowIndex u where
   workflowIndex :: Lens' u Int
 
-workflowWidget :: forall t m e f u.
+workflowWidget :: forall t m e f u v.
                   (MonadWidget t m, Eq e, HasBadWorkflowIndex e, NFunctor f, AsWorkflowIndex u)
-               => [WorkflowStep t m e f u]
+               => [WorkflowStep t m e f u v]
                -> WorkflowWidgetConfig t m e
-               -> ValidationWidget t e f u m ()
-workflowWidget [] _ = toValidationWidget_ $ \ _ _ _ _ ->
+               -> ValidationWidget t e f u v m ()
+workflowWidget [] _ = toValidationWidget_ $ \ _ _ _ _ _ ->
   pure mempty
-workflowWidget steps wwc = toValidationWidget_ $ \i dv du des ->
+workflowWidget steps wwc = toValidationWidget_ $ \i dv du dc des ->
   let
     labels = stepLabel <$> steps
     w wix iv eIxS =
@@ -107,11 +107,11 @@ workflowWidget steps wwc = toValidationWidget_ $ \i dv du des ->
         Nothing -> Workflow $ do
           text "Indexing error"
           pure (mempty, never)
-        Just (WorkflowStep _ f@(Field fl flU _ _ _) ws) -> Workflow $ mdo
+        Just (WorkflowStep _ f@(Field fl flU flC _ _ _) ws) -> Workflow $ mdo
           (eIx, ValidationWidgetOutput dFailure eChange eU) <-
               (wwc ^. wwcCombine)
                 ((wwc ^. wwcHeader) wix labels (pure ()))
-                (runValidationWidget_ (fieldWidget f) i dv du des)
+                (runValidationWidget_ (fieldWidget f) i dv du dc des)
                 ((wwc ^. wwcFooter) wix labels (pure ()))
 
           let
@@ -134,8 +134,8 @@ workflowWidget steps wwc = toValidationWidget_ $ \i dv du des ->
 
             checkValidation e =
               let
-                fes es v ix = foldValidation es . fmap (\s -> (ix, s)) . toEither . runValidationFn (fieldValidation f) i $ v
-                (eF, eIS) = fanEither $ fes <$> current dFailure <*> current dv' <@> e
+                fes es v c ix = foldValidation es . fmap (\s -> (ix, s)) . toEither . runValidationFn (fieldValidation f) i c $ v
+                (eF, eIS) = fanEither $ fes <$> current dFailure <*> current dv' <*> current dc <@> e
                 -- TODO validate from here to the new index, stop at first validation error
                 -- (eF, eIS) = fanEither $ validateBetween steps i wix <$> current dFailure <*> current dv' <@> e
               in

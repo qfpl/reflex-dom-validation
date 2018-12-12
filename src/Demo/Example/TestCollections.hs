@@ -52,6 +52,7 @@ import Reflex.Dom.Validation.Workflow
 import Bootstrap
 
 import Demo.Example.CompletedWithReason
+import Demo.Example.Reason
 import Demo.Example.TodoItem
 import Demo.Example.Workflow
 
@@ -119,7 +120,7 @@ class AsTestCollectionsU u where
 instance AsTestCollectionsU TestCollectionsU where
   testCollectionsU = id
 
-testCollectionsF :: forall t m e f u.
+testCollectionsF :: forall t m e f u v.
                     ( MonadWidget t m
                     , Eq e
                     , HasErrorMessage e
@@ -134,25 +135,25 @@ testCollectionsF :: forall t m e f u.
                     , AsTestCollections f
                     , AsTestCollectionsU u
                     )
-                 => Field t m e f TestCollections u TestCollectionsU
+                 => Field t m e f TestCollections u TestCollectionsU v v
 testCollectionsF =
   let
     tf =
       togglesF @t @m @e @TestCollections @TestCollectionsU
-    testCollectionsV = toValidationFn $ \i tc ->
+    testCollectionsV = toValidationFn $ \i c tc ->
       TestCollections <$>
-        runValidationFn (fieldValidation (completedWithReasonF @t @m)) i tc <*>
-        ((runValidationFn (fieldValidation tf) i tc) `bindValidation`
+        runValidationFn (fieldValidation (completedWithReasonF @t @m)) i c tc <*>
+        ((runValidationFn (fieldValidation tf) i c tc) `bindValidation`
           (\(Compose xs) -> if length xs < 2
                   then (Failure . pure . WithId (fieldId tf i) $ _CollectionTooSmall # ())
                   else Success xs)) <*>
-        runValidationFn (fieldValidation (fooF @t @m @e @TestCollections @TestCollectionsU)) i tc
+        runValidationFn (fieldValidation (fooF @t @m @e @TestCollections @TestCollectionsU)) i c tc
     testCollectionsW =
         fieldWidget completedWithReasonF >>
         fieldWidget togglesF >>
         fieldWidget fooF
   in
-    Field testCollections testCollectionsU (idApp "-tc") testCollectionsV testCollectionsW
+    Field testCollections testCollectionsU (flip const) (idApp "-tc") testCollectionsV testCollectionsW
 
 class HasCollectionTooSmall e where
   _CollectionTooSmall :: Prism' e ()
@@ -161,7 +162,7 @@ class AsTodoItems f where
   todoItems :: Lens' (f g) (Compose (Map Int) TodoItem g)
 
 -- TODO add a text field here to put things through their paces
-togglesF :: (MonadWidget t m, HasErrorMessage e, AsTodoItems f, AsTodoItemsU u) => Field t m e f (Compose (Map Int) TodoItem) u (Map Int ())
+togglesF :: (MonadWidget t m, HasErrorMessage e, AsTodoItems f, AsTodoItemsU u) => Field t m e f (Compose (Map Int) TodoItem) u (Map Int ()) v (Map Int ())
 togglesF =
   let
     ki Nothing i = Id (Just i) "-ts"
@@ -174,4 +175,4 @@ togglesF =
     deleteMe =
       buttonClass "Remove" "btn"
   in
-    collectionF todoItems todoItemsU ki todoItemF addMe deleteMe
+    collectionF todoItems todoItemsU (const . fmap (const ()) . getCompose . view todoItems) ki todoItemF addMe deleteMe

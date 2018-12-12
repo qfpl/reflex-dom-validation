@@ -63,13 +63,13 @@ instance NFunctor TodoItem where
 
 makeLenses ''TodoItem
 
-toggleV :: ValidationFn e (Wrap Bool) (Wrap Bool)
-toggleV = toValidationFn $ \i ->
+toggleV :: ValidationFn e v (Wrap Bool) (Wrap Bool)
+toggleV = toValidationFn $ \i _ ->
   Success . Wrap . Identity . fromMaybe False . unWrap
 
 toggleW :: (MonadWidget t m)
-        => ValidationWidget t e (Wrap Bool) u m ()
-toggleW = toValidationWidget_ $ \i dv _ _ -> do
+        => ValidationWidget t e (Wrap Bool) u v m ()
+toggleW = toValidationWidget_ $ \i dv _ _ _ -> do
   let
     f = fromMaybe False . unWrap
     ev = f <$> updated dv
@@ -83,17 +83,17 @@ toggleW = toValidationWidget_ $ \i dv _ _ -> do
 
   pure $ ValidationWidgetOutput (pure mempty) eChange never
 
-completeF :: MonadWidget t m => Field t m e TodoItem (Wrap Bool) u ()
-completeF = Field tiComplete united (idApp "-c") toggleV toggleW
+completeF :: MonadWidget t m => Field t m e TodoItem (Wrap Bool) u u v v
+completeF = Field tiComplete id (flip const) (idApp "-c") toggleV toggleW
 
 -- TODO make this an error if it is empty
-itemV :: ValidationFn e (Wrap Text) (Wrap Text)
-itemV = toValidationFn $ \_ ->
+itemV :: ValidationFn e v (Wrap Text) (Wrap Text)
+itemV = toValidationFn $ \_ _ ->
   Success . Wrap . Identity . fromMaybe "" . unWrap
 
 itemW :: MonadWidget t m
-      => ValidationWidget t e (Wrap Text) u m ()
-itemW = toValidationWidget_ $ \_ dv _ _ -> do
+      => ValidationWidget t e (Wrap Text) u v m ()
+itemW = toValidationWidget_ $ \_ dv _ _ _ -> do
   let
     f = fromMaybe "" . unWrap
     ev = f <$> updated dv
@@ -107,19 +107,19 @@ itemW = toValidationWidget_ $ \_ dv _ _ -> do
 
   pure $ ValidationWidgetOutput (pure mempty) eChange never
 
-itemF :: MonadWidget t m => Field t m e TodoItem (Wrap Text) u ()
-itemF = Field tiItem united (idApp "-i") itemV itemW
+itemF :: MonadWidget t m => Field t m e TodoItem (Wrap Text) u u v v
+itemF = Field tiItem id (flip const) (idApp "-i") itemV itemW
 
-todoItemF :: forall t m e u. (MonadWidget t m, HasErrorMessage e) => Field t m e TodoItem TodoItem u u
+todoItemF :: forall t m e u v. (MonadWidget t m, HasErrorMessage e) => Field t m e TodoItem TodoItem u u v v
 todoItemF =
   let
     todoItemV =
-      TodoItem <$> 
-        fieldValidation (completeF @t @m) <*> 
-        fieldValidation (itemF @t @m) 
+      TodoItem <$>
+        fieldValidation (completeF @t @m) <*>
+        fieldValidation (itemF @t @m)
     todoItemW = do
-      fieldWidget completeF 
-      fieldWidget itemF 
+      fieldWidget completeF
+      fieldWidget itemF
       errorsForId
   in
-    Field id id (idApp "-ti") todoItemV todoItemW
+    Field id id (flip const) (idApp "-ti") todoItemV todoItemW

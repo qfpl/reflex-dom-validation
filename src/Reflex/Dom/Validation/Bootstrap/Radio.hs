@@ -69,8 +69,8 @@ instance RadioChange 'Optional where
 radioWidget :: (MonadWidget t m, HasErrorMessage e, Eq c, RadioChange r)
             => RadioWidgetConfig c
             -> SRequirement r c
-            -> ValidationWidget t e (Wrap (Requires r c)) u m ()
-radioWidget rwc sr = toValidationWidget_ $ \i dv du des -> divClass "form-group" $ do
+            -> ValidationWidget t e (Wrap (Requires r c)) u v m ()
+radioWidget rwc sr = toValidationWidget_ $ \i dv du dc des -> divClass "form-group" $ do
   let
     it = idToText i
     cls = "form-check " <> bool " form-check-inline" "" (rwc ^. rwcStacked)
@@ -95,7 +95,7 @@ radioWidget rwc sr = toValidationWidget_ $ \i dv du des -> divClass "form-group"
       text kl
     let ev' = cb ^. checkbox_change
 
-    _ <- runValidationWidget errorsForId i dv du des
+    _ <- runValidationWidget errorsForId i dv du dc des
 
     pure $ bool Nothing (Just v) <$> ev'
 

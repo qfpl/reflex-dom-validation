@@ -95,10 +95,10 @@ instance FromJSONTag ExampleTag Identity where
 go :: forall t m. MonadWidget t m => m (Event t (TestCollections Identity))
 go =
   let
-    tc = testCollectionsF :: Field t m MyError TestCollections TestCollections TestCollectionsU TestCollectionsU
+    tc = testCollectionsF :: Field t m MyError TestCollections TestCollections TestCollectionsU TestCollectionsU () ()
     tcu = TestCollectionsU (FooU 0 (NestU 0 (Nest1U 0) (Nest2U 0) (Nest3U 0))) mempty
   in
-    wrapUpStorage tc DataTag mempty UiTag tcu ErrorsTag $ \d -> divClass "row" $ do
+    wrapUpStorage tc DataTag mempty UiTag tcu () ErrorsTag $ \d -> divClass "row" $ do
       -- the version with a validation button
       eValidate <- divClass "col" $ buttonClass "Validate" "btn"
 

@@ -206,55 +206,55 @@ instance NFunctor Nest where
 makeLenses ''Nest
 
 fooNVx :: HasNotSpecified e
-      => ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
-fooNVx = toValidationFn $ \i v ->
+      => ValidationFn e v (Wrap (Maybe Text)) (Wrap (Maybe Text))
+fooNVx = toValidationFn $ \i _ v ->
   case v of
     Wrap (Just (Just t)) -> Success . Wrap . Identity . Just $ t
     Wrap Nothing -> Failure . pure . WithId i $ _NotSpecified # ()
 
 fooNWx :: (MonadWidget t m, HasErrorMessage e)
       => Text
-      -> ValidationWidget t e (Wrap (Maybe Text)) u m ()
+      -> ValidationWidget t e (Wrap (Maybe Text)) u v m ()
 fooNWx l =
   textWidget (TextWidgetConfig (Just l) UpdateOnChange) SOptional
 
-fooNFx :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
+fooNFx :: forall t m e f u v. (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
       => (forall g. Lens' (f g) (Wrap (Maybe Text) g))
       -> Text
       -> Text
-      -> Field t m e f (Wrap (Maybe Text)) u ()
+      -> Field t m e f (Wrap (Maybe Text)) u u v v
 fooNFx o i l =
-  Field o united (idApp i) fooNVx (fooNWx l)
+  Field o id (flip const) (idApp i) fooNVx (fooNWx l)
 
-fooN1a :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u ()
+fooN1a :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u u v v
 fooN1a = fooNFx n1a "-a" "A"
 
-fooN1b :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u ()
+fooN1b :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u u v v
 fooN1b = fooNFx n1b "-b" "B"
 
-fooN1c :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u ()
+fooN1c :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest1 (Wrap (Maybe Text)) u u v v
 fooN1c = fooNFx n1c "-c" "C"
 
-fooN2d :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest2 (Wrap (Maybe Text)) u ()
+fooN2d :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest2 (Wrap (Maybe Text)) u u v v
 fooN2d = fooNFx n2d "-d" "D"
 
-fooN2e :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest2 (Wrap (Maybe Text)) u ()
+fooN2e :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest2 (Wrap (Maybe Text)) u u v v
 fooN2e = fooNFx n2e "-e" "E"
 
-fooN2f :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest2 (Wrap (Maybe Text)) u ()
+fooN2f :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest2 (Wrap (Maybe Text)) u u v v
 fooN2f = fooNFx n2f "-f" "F"
 
-fooN3g :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest3 (Wrap (Maybe Text)) u ()
+fooN3g :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest3 (Wrap (Maybe Text)) u u v v
 fooN3g = fooNFx n3g "-g" "G"
 
-fooN3h :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest3 (Wrap (Maybe Text)) u ()
+fooN3h :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest3 (Wrap (Maybe Text)) u u v v
 fooN3h = fooNFx n3h "-h" "H"
 
-fooN3i :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest3 (Wrap (Maybe Text)) u ()
+fooN3i :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e) => Field t m e Nest3 (Wrap (Maybe Text)) u u v v
 fooN3i = fooNFx n3i "-i" "I"
 
-fooN1F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
-      => Field t m e Nest Nest1 NestU Nest1U
+fooN1F :: forall t m e v. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+      => Field t m e Nest Nest1 NestU Nest1U v v
 fooN1F =
   let
     fooN1V =
@@ -268,10 +268,10 @@ fooN1F =
                      , WorkflowStep "W3" fooN1c []
                      ] workflowWidgetConfig
   in
-    Field n1 n1u (idApp "-1") fooN1V fooN1W
+    Field n1 n1u (flip const) (idApp "-1") fooN1V fooN1W
 
-fooN2F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
-      => Field t m e Nest Nest2 NestU Nest2U
+fooN2F :: forall t m e v. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+      => Field t m e Nest Nest2 NestU Nest2U v v
 fooN2F =
   let
     fooN2V =
@@ -285,10 +285,10 @@ fooN2F =
                      , WorkflowStep "W6" fooN2f []
                      ] workflowWidgetConfig
   in
-    Field n2 n2u (idApp "-2") fooN2V fooN2W
+    Field n2 n2u (flip const) (idApp "-2") fooN2V fooN2W
 
-fooN3F :: forall t m e. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
-      => Field t m e Nest Nest3 NestU Nest3U
+fooN3F :: forall t m e v. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e)
+      => Field t m e Nest Nest3 NestU Nest3U v v
 fooN3F =
   let
     fooN3V =
@@ -302,7 +302,7 @@ fooN3F =
                     , WorkflowStep "W9" fooN3i []
                     ] workflowWidgetConfig
   in
-    Field n3 n3u (idApp "-3") fooN3V fooN3W
+    Field n3 n3u (flip const) (idApp "-3") fooN3V fooN3W
 
 class AsNest f where
   nest :: Lens' (f g) (Nest g)
@@ -316,15 +316,15 @@ class AsNestU u where
 instance AsNestU NestU where
   nestU = id
 
-fooNF :: forall t m e f u. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e, AsNest f, AsNestU u)
-      => Field t m e f Nest u NestU
+fooNF :: forall t m e f u v. (MonadWidget t m, HasErrorMessage e, Eq e, HasBadWorkflowIndex e, HasNotSpecified e, AsNest f, AsNestU u)
+      => Field t m e f Nest u NestU v v
 fooNF =
   let
     fooNV =
       Nest <$>
         fieldValidation (fooN1F @t @m) <*>
         fieldValidation (fooN2F @t @m) <*>
-        fieldValidation (fooN3F @t @m) 
+        fieldValidation (fooN3F @t @m)
 
     fooNW =
       workflowWidget [ WorkflowStep "WA" fooN1F $
@@ -344,7 +344,7 @@ fooNF =
                        ]
                      ] workflowWidgetConfig
   in
-    Field nest nestU (idApp "-n") fooNV fooNW
+    Field nest nestU (flip const) (idApp "-n") fooNV fooNW
 
 data Bar = A | B | C deriving (Eq, Ord, Show, Read, Generic)
 
@@ -451,8 +451,8 @@ fooAV :: ( HasErrorMessage e
          , HasFooNotDigits e
          , HasValidityError e
          )
-      => ValidationFn e (Wrap Day) (Wrap Day)
-fooAV = toValidationFn $ \i v -> 
+      => ValidationFn e v (Wrap Day) (Wrap Day)
+fooAV = toValidationFn $ \i _ v ->
   case v of
     Wrap (Just x) -> Success . Wrap . Identity $ x
     Wrap Nothing -> Failure . pure . WithId i $ _FooNotDigits # ()
@@ -461,7 +461,7 @@ fooAW :: ( MonadWidget t m
          , HasErrorMessage e
          , HasValidityError e
          )
-      => ValidationWidget t e (Wrap Day) u m ()
+      => ValidationWidget t e (Wrap Day) u v m ()
 fooAW =
   validWidget (ValidWidgetConfig (Just "A") dayConfigBuilder)
 
@@ -470,19 +470,19 @@ fooAF :: ( MonadWidget t m
          , HasFooNotDigits e
          , HasValidityError e
          )
-      => Field t m e Foo (Wrap Day) u ()
+      => Field t m e Foo (Wrap Day) u u v v
 fooAF =
-  Field fooA united (idApp "-a") fooAV fooAW
+  Field fooA id (flip const) (idApp "-a") fooAV fooAW
 
 fooBV :: (HasErrorMessage e, HasFooNotLower e)
-      => ValidationFn e (Wrap (Set Bar)) (Wrap (Set Bar))
-fooBV = toValidationFn $ \_ v ->
+      => ValidationFn e v (Wrap (Set Bar)) (Wrap (Set Bar))
+fooBV = toValidationFn $ \_ _ v ->
   case v of
     Wrap (Just t) -> Success . Wrap . Identity $ t
     _ -> Success . Wrap . Identity $ mempty
 
 fooBW :: (MonadWidget t m, HasErrorMessage e)
-      => ValidationWidget t e (Wrap (Set Bar)) u m ()
+      => ValidationWidget t e (Wrap (Set Bar)) u v m ()
 fooBW =
   checkboxWidget . CheckboxWidgetConfig (Just "B") True $
     [ CheckboxOptionConfig "A" "-a" A
@@ -491,13 +491,13 @@ fooBW =
     ]
 
 fooBF :: (MonadWidget t m, HasErrorMessage e, HasFooNotLower e)
-      => Field t m e Foo (Wrap (Set Bar)) u ()
+      => Field t m e Foo (Wrap (Set Bar)) u u v v
 fooBF =
-  Field fooB united (idApp "-b") fooBV fooBW
+  Field fooB id (flip const) (idApp "-b") fooBV fooBW
 
 fooCV :: (HasErrorMessage e, HasFooNotUpper e)
-      => ValidationFn e (Wrap (Maybe Text)) (Wrap (Maybe Text))
-fooCV = toValidationFn $ \i v -> 
+      => ValidationFn e v (Wrap (Maybe Text)) (Wrap (Maybe Text))
+fooCV = toValidationFn $ \i _ v -> 
   case v of
     Wrap (Just (Just t)) ->
       if all isUpper (Text.unpack t)
@@ -507,24 +507,24 @@ fooCV = toValidationFn $ \i v ->
       Success . Wrap . Identity $ Nothing
 
 fooCW :: (MonadWidget t m, HasErrorMessage e)
-      => ValidationWidget t e (Wrap (Maybe Text)) u m ()
+      => ValidationWidget t e (Wrap (Maybe Text)) u v m ()
 fooCW =
   textWidget (TextWidgetConfig (Just "C") UpdateOnChange) SOptional
 
 fooCF :: (MonadWidget t m, HasErrorMessage e, HasFooNotUpper e)
-      => Field t m e Foo (Wrap (Maybe Text)) u ()
+      => Field t m e Foo (Wrap (Maybe Text)) u u v v
 fooCF =
-  Field fooC united (idApp "-c") fooCV fooCW
+  Field fooC id (flip const) (idApp "-c") fooCV fooCW
 
 selectOV :: (HasNotSpecified e)
-         => ValidationFn e (Wrap Bar) (Wrap Bar)
-selectOV = toValidationFn $ \i v ->
+         => ValidationFn e v (Wrap Bar) (Wrap Bar)
+selectOV = toValidationFn $ \i _ v ->
   case v of
     Wrap (Just x) -> Success . Wrap . Identity $ x
     Wrap Nothing -> Failure . pure . WithId i $ _NotSpecified # ()
 
 selectOW :: (MonadWidget t m, HasErrorMessage e)
-         => ValidationWidget t e (Wrap Bar) u m ()
+         => ValidationWidget t e (Wrap Bar) u v m ()
 selectOW =
   selectWidget A . SelectWidgetConfig (Just "One") $
     [ SelectOptionConfig "A" A
@@ -533,18 +533,18 @@ selectOW =
     ]
 
 selectOF :: (MonadWidget t m, HasErrorMessage e, HasNotSpecified e)
-         => Field t m e SelectDemo (Wrap Bar) u ()
+         => Field t m e SelectDemo (Wrap Bar) u u v v
 selectOF =
-  Field sdOne united (idApp "-o") selectOV selectOW
+  Field sdOne id (flip const) (idApp "-o") selectOV selectOW
 
-selectMaV :: ValidationFn e (Wrap (Maybe Bar)) (Wrap (Maybe Bar))
-selectMaV = toValidationFn $ \i v ->
+selectMaV :: ValidationFn e v (Wrap (Maybe Bar)) (Wrap (Maybe Bar))
+selectMaV = toValidationFn $ \i _ v ->
   case v of
     Wrap (Just mb) -> Success . Wrap . Identity $ mb
     Wrap Nothing -> Success . Wrap . Identity $ Nothing
 
 selectMaW :: (MonadWidget t m, HasErrorMessage e)
-          => ValidationWidget t e (Wrap (Maybe Bar)) u m ()
+          => ValidationWidget t e (Wrap (Maybe Bar)) u v m ()
 selectMaW =
   selectOptionalWidget . SelectWidgetConfig (Just "Maybe") $
     [ SelectOptionConfig "A" A
@@ -552,26 +552,26 @@ selectMaW =
     , SelectOptionConfig "C" C
     ]
 
-selectMaF :: (MonadWidget t m, HasErrorMessage e) => Field t m e SelectDemo (Wrap (Maybe Bar)) u ()
+selectMaF :: (MonadWidget t m, HasErrorMessage e) => Field t m e SelectDemo (Wrap (Maybe Bar)) u u v v
 selectMaF =
-  Field sdMaybe united (idApp "-ma") selectMaV selectMaW
+  Field sdMaybe id (flip const) (idApp "-ma") selectMaV selectMaW
 
-fooDF :: forall t m e f u. (MonadWidget t m, AsSelectDemo f, HasErrorMessage e, HasFooNotUpper e, HasNotSpecified e)
-      => Field t m e f SelectDemo u ()
+fooDF :: forall t m e f u v. (MonadWidget t m, AsSelectDemo f, HasErrorMessage e, HasFooNotUpper e, HasNotSpecified e)
+      => Field t m e f SelectDemo u u v v
 fooDF =
   let
     fooDV =
       SelectDemo <$>
         fieldValidation (selectOF @t @m) <*>
-        fieldValidation (selectMaF @t @m) 
+        fieldValidation (selectMaF @t @m)
 
     fooDW =
       fieldWidget selectOF >>
       fieldWidget selectMaF
   in
-    Field selectDemo united (idApp "-d") fooDV fooDW
+    Field selectDemo id (flip const) (idApp "-d") fooDV fooDW
 
-fooF :: forall t m e f u.
+fooF :: forall t m e f u v.
         ( MonadWidget t m
         , Eq e
         , HasErrorMessage e
@@ -584,7 +584,7 @@ fooF :: forall t m e f u.
         , AsFoo f
         , AsFooU u
         )
-      => Field t m e f Foo u FooU
+      => Field t m e f Foo u FooU v v
 fooF =
   let
     fooV =
@@ -593,7 +593,7 @@ fooF =
         fieldValidation (fooDF @t @m) <*>
         fieldValidation (fooAF @t @m) <*>
         fieldValidation (fooBF @t @m) <*>
-        fieldValidation (fooCF @t @m) 
+        fieldValidation (fooCF @t @m)
 
     fooW =
       workflowWidget
@@ -605,4 +605,4 @@ fooF =
         ]
         workflowWidgetConfig
   in
-    Field foo fooU (idApp "-foo") fooV fooW
+    Field foo fooU (flip const) (idApp "-foo") fooV fooW

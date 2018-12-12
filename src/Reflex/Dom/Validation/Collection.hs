@@ -38,12 +38,14 @@ import Reflex.Dom.Validation.Error
 import Reflex.Dom.Validation.Bootstrap.Errors
 
 -- maybe put these into an intmap, and require that we can pull a k out of `f' whatever`
-collectionV :: (Maybe k -> Id -> Id)
-            -> Field t m e f f' u u' -- ValidationFn e f f'
-            -> ValidationFn e (Compose (Map k) f) (Compose (Map k) f')
-collectionV ki (Field l _ fi vfn _) = toValidationFn $ \i ->
+collectionV :: Ord k
+            => (Maybe k -> Id -> Id)
+            -> Field t m e f f' u u' v v' -- ValidationFn e f f'
+            -> ValidationFn e (Map k v) (Compose (Map k) f) (Compose (Map k) f')
+collectionV ki (Field l _ lc fi vfn _) = toValidationFn $ \i c ->
  fmap Compose .
- Map.traverseWithKey (\k v -> runValidationFn vfn (fi (ki (Just k) i)) (view l v)) .
+ -- TODO this should fail if c does not have the key k
+ Map.traverseWithKey (\k v -> runValidationFn vfn (fi (ki (Just k) i)) (lc v (c Map.! k)) (view l v)) .
  getCompose
 
 gatherCollectionEvents :: forall t e f u k. (Reflex t, Num k, Enum k, Ord k)
@@ -86,43 +88,48 @@ gatherCollectionEvents eAdd dme =
       (eChangesU <> eDeletesU <> eAdditionsU)
 
 -- TODO generalize the bootstrap specific bits of this away
-collectionW :: forall t m e f u k. (MonadWidget t m, HasErrorMessage e, Num k, Enum k, Ord k)
+collectionW :: forall t m e f u v k. (MonadWidget t m, HasErrorMessage e, Num k, Enum k, Ord k)
       => (Maybe k -> Id -> Id)
-      -> Field t m e f f u u
+      -> Field t m e f f u u v v
       -> m (Event t (f Maybe, u))
       -> m (Event t ())
-      -> ValidationWidget t e (Compose (Map k) f) (Map k u) m ()
-collectionW ki (Field l lu fi _ fw) addMe deleteMe = toValidationWidget_ $ \i dv du des ->
+      -> ValidationWidget t e (Compose (Map k) f) (Map k u) (Map k v) m ()
+collectionW ki (Field l lu lc fi _ fw) addMe deleteMe = toValidationWidget_ $ \i dv du dc des ->
   let
     dClass = ("form-control " <>) <$> errorClass i des
+    combineMaps :: Compose (Map k) f g -> Map k u -> Map k v -> Map k (f g, (u, v))
+    combineMaps v u c = Map.intersectionWith (,) (getCompose v) (Map.intersectionWith (,) u c)
+    combinedMaps = combineMaps <$> dv <*> du <*> dc
   in do
     vwo <- elDynClass "div" dClass $ do
       -- TODO add buttons to each row to allow them to move up and down
       eAdd <- addMe
 
-      dm <- listWithKey ((\v u -> (Map.intersectionWith (,) (getCompose v) u)) <$> dv <*> du) $ \k dvu' -> do
+      dm <- listWithKey combinedMaps $ \k dvuc' -> do
         let
           i' = ki (Just k) i
-          dv' = fst <$> dvu'
-          du' = snd <$> dvu'
+          dv' = fst <$> dvuc'
+          du' = fst . snd <$> dvuc'
+          dc' = snd . snd <$> dvuc'
         el "div" $ do
         -- divClass "form-group" $ do
-          vwo' <- runValidationWidget_ fw (fi i') (view l <$> dv') (view lu <$> du') $ filter (matchOrDescendant i' . view wiId) <$> des
+          vwo' <- runValidationWidget_ fw (fi i') (view l <$> dv') (view lu <$> du') (lc <$> dv' <*> dc') $ filter (matchOrDescendant i' . view wiId) <$> des
           eDel <- deleteMe
           pure (vwo', eDel)
 
       pure $ gatherCollectionEvents eAdd dm
 
-    _ <- runValidationWidget errorsForId i dv du des
+    _ <- runValidationWidget errorsForId i dv du dc des
     pure vwo
 
-collectionF :: forall t m e f f' u u' k. (MonadWidget t m, NFunctor f', HasErrorMessage e, Num k, Enum k, Ord k)
+collectionF :: forall t m e f f' u u' v v' k. (MonadWidget t m, NFunctor f', HasErrorMessage e, Num k, Enum k, Ord k)
       => (forall g. Functor g => Lens' (f g) (Compose (Map k) f' g))
       -> Lens' u (Map k u')
+      -> (forall g. Functor g => f g -> v -> Map k v')
       -> (Maybe k -> Id -> Id)
-      -> Field t m e f' f' u' u'
+      -> Field t m e f' f' u' u' v' v'
       -> m (Event t (f' Maybe, u'))
       -> m (Event t ())
-      -> Field t m e f (Compose (Map k) f') u (Map k u')
-collectionF l lu fi f addMe deleteMe =
-  Field l lu (fi Nothing) (collectionV fi f) (collectionW fi f addMe deleteMe)
+      -> Field t m e f (Compose (Map k) f') u (Map k u') v (Map k v')
+collectionF l lu lv fi f addMe deleteMe =
+  Field l lu lv (fi Nothing) (collectionV fi f) (collectionW fi f addMe deleteMe)
