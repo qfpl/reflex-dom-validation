@@ -33,10 +33,10 @@ import Reflex.Dom.Validation.Requires
 import Reflex.Dom.Validation.Wrap
 import Reflex.Dom.Validation.Bootstrap.Errors
 
-data ValidWidgetConfig t m e a =
+data ValidWidgetConfig t m e v a =
   ValidWidgetConfig {
     _vwcLabel :: Maybe Text
-  , _vwcBuilder :: ValidInputConfigBuilder t m e a
+  , _vwcBuilder :: ValidInputConfigBuilder t m e v a
   }
 
 makeLenses ''ValidWidgetConfig
@@ -46,7 +46,7 @@ validWidget ::
   , HasErrorMessage e
   , HasValidityError e
   )
-  => ValidWidgetConfig t m e a
+  => ValidWidgetConfig t m e v a
   -> ValidationWidget t e (Wrap a) u v m ()
 validWidget vwc = toValidationWidget_ $ \i dv du dc des -> divClass "form-group" $ do
   let it = idToText i
@@ -54,7 +54,7 @@ validWidget vwc = toValidationWidget_ $ \i dv du dc des -> divClass "form-group"
   forM_ (vwc ^. vwcLabel) $
      elAttr "label" ("for" =: it) . text
 
-  vic <- runValidInputConfigBuilder (vwc ^. vwcBuilder) dv $
+  vic <- runValidInputConfigBuilder (vwc ^. vwcBuilder) dv dc $
     pure ("id" =: it) <>
     (("class" =:) . ("form-control " <>) <$> errorClass i des)
   vi <- valid vic

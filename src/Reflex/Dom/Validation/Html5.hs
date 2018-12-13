@@ -160,9 +160,10 @@ valid (ValidInputConfig vTo vFrom vType initial eSetValue dAttrs) = do
     input'
     (_inputElement_hasFocus i)
 
-newtype ValidInputConfigBuilder t m e a =
+newtype ValidInputConfigBuilder t m e v a =
   ValidInputConfigBuilder {
     runValidInputConfigBuilder :: Dynamic t (Wrap a Maybe)
+                               -> Dynamic t v
                                -> Dynamic t (Map Text Text)
                                -> m (ValidInputConfig t e a)
   }
@@ -172,8 +173,8 @@ newtype ValidInputConfigBuilder t m e a =
 
 -- would be good to make this _not_ a form control, or otherwise tweak the height of it
 colourConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
-                    => ValidInputConfigBuilder t m e (Colour Double)
-colourConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+                    => ValidInputConfigBuilder t m e v (Colour Double)
+colourConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
   iv <- sample . current $ dv
   pure $ ValidInputConfig
     (Text.pack . sRGB24show)
@@ -184,8 +185,8 @@ colourConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     dattrs
 
 optionalColourConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
-                            => ValidInputConfigBuilder t m e (Maybe (Colour Double))
-optionalColourConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+                            => ValidInputConfigBuilder t m e v (Maybe (Colour Double))
+optionalColourConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
   iv <- sample . current $ dv
   pure $ ValidInputConfig
     (maybe "" (Text.pack . sRGB24show))
@@ -196,8 +197,8 @@ optionalColourConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     dattrs
 
 dayConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
-                 => ValidInputConfigBuilder t m e Day
-dayConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+                 => ValidInputConfigBuilder t m e v Day
+dayConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
   iv <- sample . current $ dv
   pure $ ValidInputConfig
     (Text.pack . formatTime defaultTimeLocale "%Y-%m-%d")
@@ -207,21 +208,9 @@ dayConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     (fmapMaybe unWrap $ updated dv)
     dattrs
 
-timeConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
-                 => ValidInputConfigBuilder t m e TimeOfDay
-timeConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
-  iv <- sample . current $ dv
-  pure $ ValidInputConfig
-    (Text.pack . formatTime defaultTimeLocale "%H:%M")
-    (maybe (Failure . pure $ _ValidityError . _BadInput # ()) (Success . fst) . headMay . readSTime False defaultTimeLocale "%H:%M" . Text.unpack)
-    "time"
-    (unWrap iv)
-    (fmapMaybe unWrap $ updated dv)
-    dattrs
-
 optionalDayConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
-                         => ValidInputConfigBuilder t m e (Maybe Day)
-optionalDayConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+                         => ValidInputConfigBuilder t m e v (Maybe Day)
+optionalDayConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
   iv <- sample . current $ dv
   pure $ ValidInputConfig
     (maybe "" (Text.pack . formatTime defaultTimeLocale "%Y-%m-%d"))
@@ -231,9 +220,33 @@ optionalDayConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     (join . unWrap <$> updated dv)
     dattrs
 
+timeConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                  => ValidInputConfigBuilder t m e v TimeOfDay
+timeConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (Text.pack . formatTime defaultTimeLocale "%H:%M")
+    (maybe (Failure . pure $ _ValidityError . _BadInput # ()) (Success . fst) . headMay . readSTime False defaultTimeLocale "%H:%M" . Text.unpack)
+    "time"
+    (unWrap iv)
+    (fmapMaybe unWrap $ updated dv)
+    dattrs
+
+optionalTimeConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                          => ValidInputConfigBuilder t m e v (Maybe TimeOfDay)
+optionalTimeConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (maybe "" (Text.pack . formatTime defaultTimeLocale "%H:%M"))
+    (Success . fmap fst . headMay . readSTime False defaultTimeLocale "%H:%M" . Text.unpack)
+    "time"
+    (unWrap iv)
+    (join . unWrap <$> updated dv)
+    dattrs
+
 intConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
-                 => ValidInputConfigBuilder t m e Int
-intConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+                 => ValidInputConfigBuilder t m e v Int
+intConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
   iv <- sample . current $ dv
   pure $ ValidInputConfig
     (Text.pack . show)
@@ -244,8 +257,8 @@ intConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     (pure ("placeholder" =: "0") <> dattrs)
 
 optionalIntConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
-                         => ValidInputConfigBuilder t m e (Maybe Int)
-optionalIntConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+                         => ValidInputConfigBuilder t m e v (Maybe Int)
+optionalIntConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
   iv <- sample . current $ dv
   pure $ ValidInputConfig
     (maybe "" (Text.pack . show))
@@ -256,8 +269,8 @@ optionalIntConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     (pure ("placeholder" =: "0") <> dattrs)
 
 decimalConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
-                     => ValidInputConfigBuilder t m e Double
-decimalConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+                     => ValidInputConfigBuilder t m e v Double
+decimalConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
   iv <- sample . current $ dv
   pure $ ValidInputConfig
     (Text.pack . show)
@@ -268,8 +281,8 @@ decimalConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     (pure ("placeholder" =: "0.00" <> "step" =: "0.01") <> dattrs)
 
 optionalDecimalConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
-                             => ValidInputConfigBuilder t m e (Maybe Double)
-optionalDecimalConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+                             => ValidInputConfigBuilder t m e v (Maybe Double)
+optionalDecimalConfigBuilder = ValidInputConfigBuilder $ \dv _ dattrs -> do
   iv <- sample . current $ dv
   pure $ ValidInputConfig
     (maybe "" (Text.pack . show))
