@@ -47,8 +47,7 @@ import Reflex.Dom.Validation.Id
 import Reflex.Dom.Validation.Requires
 import Reflex.Dom.Validation.Wrap
 
-import Data.Time.Calendar
-import Data.Time.Format
+import Data.Time
 
 import Data.Colour
 import Data.Colour.SRGB
@@ -204,6 +203,18 @@ dayConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
     (Text.pack . formatTime defaultTimeLocale "%Y-%m-%d")
     (maybe (Failure . pure $ _ValidityError . _BadInput # ()) (Success . fst) . headMay . readSTime False defaultTimeLocale "%Y-%m-%d" . Text.unpack)
     "date"
+    (unWrap iv)
+    (fmapMaybe unWrap $ updated dv)
+    dattrs
+
+timeConfigBuilder :: (Reflex t, MonadHold t m, HasValidityError e)
+                 => ValidInputConfigBuilder t m e TimeOfDay
+timeConfigBuilder = ValidInputConfigBuilder $ \dv dattrs -> do
+  iv <- sample . current $ dv
+  pure $ ValidInputConfig
+    (Text.pack . formatTime defaultTimeLocale "%H:%M")
+    (maybe (Failure . pure $ _ValidityError . _BadInput # ()) (Success . fst) . headMay . readSTime False defaultTimeLocale "%H:%M" . Text.unpack)
+    "time"
     (unWrap iv)
     (fmapMaybe unWrap $ updated dv)
     dattrs
