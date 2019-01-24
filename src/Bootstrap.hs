@@ -37,9 +37,6 @@ import qualified Data.Map as Map
 
 import Reflex.Dom.Core
 
-import Language.Javascript.JSaddle.WebSockets (debugOr)
-import Network.Wai.Application.Static (staticApp, defaultWebAppSettings) 
-
 bootstrapCssFiles :: [Text]
 bootstrapCssFiles = [
     "css/bootstrap.min.css"
