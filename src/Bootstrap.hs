@@ -12,8 +12,7 @@ Portability : non-portable
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MonoLocalBinds #-}
 module Bootstrap (
-    debugApp
-  , card
+    card
   , dynButtonDynAttr
   , dynButtonAttr
   , dynButtonDynClass
@@ -74,14 +73,6 @@ tailSection =
       elAttr "script" ("src" =: src <> "defer" =: "") blank
   in
     traverse_ script bootstrapJsFiles
-
--- mkApp :: (forall x. Widget x ()) -> IO ()
--- mkApp w = mainWidgetWithHead headSection $ w >> tailSection
-
-debugApp :: Int -> (forall x. Widget x ()) -> IO ()
-debugApp p w = 
-  debugOr p (mainWidgetWithHead (headSection "Test me") $ w >> tailSection) $ 
-    staticApp $ defaultWebAppSettings "./assets"
 
 card :: MonadWidget t m => m a -> m a
 card = divClass "card m-2" . divClass "card-body"
